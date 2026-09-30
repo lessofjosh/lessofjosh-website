@@ -6,12 +6,12 @@
   "workers_dev": false,
   "routes": [
     {
-      "pattern": "lessofjosh.com",
-      "custom_domain": true
+      "pattern": "lessofjosh.com/*",
+      "zone_name": "lessofjosh.com"
     },
     {
-      "pattern": "www.lessofjosh.com",
-      "custom_domain": true
+      "pattern": "www.lessofjosh.com/*",
+      "zone_name": "lessofjosh.com"
     }
   ],
   "assets": {
