@@ -1,0 +1,71 @@
+/*
+Theme Name: Less of Josh Media Kit
+Theme URI: https://lessofjosh.com/
+Author: Josh Greenway
+Author URI: https://lessofjosh.com/
+Description: Mobile-first creator media-kit theme for Josh Greenway / Less of Josh: live platform metrics, brand-partnership and media-inquiry forms, and a server-generated media-kit PDF.
+Version: 2.0.3
+Requires at least: 6.4
+Requires PHP: 7.4
+License: GNU General Public License v2 or later
+License URI: https://www.gnu.org/licenses/gpl-2.0.html
+Text Domain: less-of-josh-media-kit
+Tags: one-column, custom-colors, custom-logo, featured-images, full-width-template
+*/
+
+/* Minimal styling for WordPress fallback views. The media-kit design is in assets/css/media-kit.css. */
+:root {
+	--loj-theme-blue: #002855;
+	--loj-theme-gold: #eaaa00;
+	--loj-theme-paper: #f6f4ee;
+	--loj-theme-ink: #071a2f;
+}
+
+html {
+	box-sizing: border-box;
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: inherit;
+}
+
+body {
+	margin: 0;
+	background: #fff;
+	color: var(--loj-theme-ink);
+	font-family: Manrope, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.loj-theme-fallback {
+	width: min(100% - 32px, 820px);
+	margin-inline: auto;
+	padding-block: 64px;
+}
+
+.loj-theme-fallback a {
+	color: var(--loj-theme-blue);
+}
+
+.loj-theme-fallback article + article {
+	margin-top: 48px;
+	padding-top: 40px;
+	border-top: 1px solid rgba(0, 40, 85, 0.16);
+}
+
+.loj-theme-fallback h1,
+.loj-theme-fallback h2 {
+	line-height: 1.1;
+}
+
+.screen-reader-text {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	margin: -1px;
+	padding: 0;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	border: 0;
+}

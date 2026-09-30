@@ -1,0 +1,56 @@
+{
+  "current_weight_loss": "232.6",
+  "brand_email": "colab@lessofus.com",
+  "media_email": "media@lessofjosh.com",
+  "mail_from": "josh@lessofjosh.com",
+  "mailing_address": "1129 Washington ST E #809 Lewisburg WV 24901",
+  "metrics_fallback": {
+    "updated_at": "2026-09-30T15:23:42+00:00",
+    "platforms": {
+      "tiktok": {
+        "name": "TikTok",
+        "handle": "@lessofjosh",
+        "url": "https://www.tiktok.com/@lessofjosh",
+        "followers": 31748,
+        "views": 749,
+        "views_label": "avg. views / recent video",
+        "engagement_rate": 11.61,
+        "updated_at": "2026-09-30T15:23:32+00:00",
+        "source": "api"
+      },
+      "instagram": {
+        "name": "Instagram",
+        "handle": "@lessofjoshwv",
+        "url": "https://www.instagram.com/lessofjoshwv/",
+        "followers": 13128,
+        "views": 1749,
+        "views_label": "avg. views / recent post",
+        "engagement_rate": 6.19,
+        "updated_at": "2026-09-30T15:23:38+00:00",
+        "source": "api"
+      },
+      "facebook": {
+        "name": "Facebook",
+        "handle": "Less of Josh",
+        "url": "https://www.facebook.com/people/Less-of-Josh/61578309146625/",
+        "followers": 11024,
+        "views": 679,
+        "views_label": "avg. reach / recent post",
+        "engagement_rate": 4.41,
+        "updated_at": "2026-09-30T15:23:41+00:00",
+        "source": "api"
+      },
+      "youtube": {
+        "name": "YouTube",
+        "handle": "@LessofJosh",
+        "url": "https://www.youtube.com/@LessofJosh",
+        "followers": 1570,
+        "views": 1238,
+        "views_label": "avg. views / recent video",
+        "engagement_rate": 8.33,
+        "updated_at": "2026-09-30T15:23:42+00:00",
+        "source": "api"
+      }
+    }
+  }
+}

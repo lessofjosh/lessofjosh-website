@@ -1,0 +1,40 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "less-of-josh",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-03-01",
+  "workers_dev": false,
+  "routes": [
+    {
+      "pattern": "lessofjosh.com",
+      "custom_domain": true
+    },
+    {
+      "pattern": "www.lessofjosh.com",
+      "custom_domain": true
+    }
+  ],
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+  "kv_namespaces": [
+    {
+      "binding": "LOJ_KV",
+      "id": "e8ee96e002e74988aba0dbe55f86115f"
+    }
+  ],
+  "triggers": {
+    "crons": [
+      "0 */3 * * *"
+    ]
+  },
+  "vars": {
+    "SITE_URL": "https://lessofjosh.com",
+    "SITE_NAME": "Less of Josh",
+    "THEME_VERSION": "2.0.3"
+  },
+  "observability": {
+    "enabled": true
+  }
+}

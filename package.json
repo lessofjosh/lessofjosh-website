@@ -1,0 +1,16 @@
+{
+  "name": "lessofjosh-website",
+  "version": "2.0.3",
+  "private": true,
+  "type": "module",
+  "description": "Cloudflare Worker for Less of Josh (lessofjosh.com)",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "node --test tests/worker.test.js",
+    "build:pdf": "php scripts/build-pdf.php"
+  },
+  "devDependencies": {
+    "wrangler": "^4.76.0"
+  }
+}
