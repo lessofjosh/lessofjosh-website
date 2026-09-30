@@ -32,7 +32,8 @@
   "vars": {
     "SITE_URL": "https://lessofjosh.com",
     "SITE_NAME": "Less of Josh",
-    "THEME_VERSION": "2.0.3"
+    "THEME_VERSION": "2.0.3",
+    "TURNSTILE_SITE_KEY": "0x4AAAAAACYHgDVM9JWwKJK3"
   },
   "observability": {
     "enabled": true

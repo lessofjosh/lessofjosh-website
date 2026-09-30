@@ -15,6 +15,44 @@ export const FORMS = {
   loj_theme_media: "media"
 };
 
+const TURNSTILE_SITEVERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
+
+function validTurnstileResult(result, type) {
+  if (!result?.success) return false;
+  if (type === "media") {
+    return result.action === "loj_media" && ["lessofjosh.com", "www.lessofjosh.com"].includes(result.hostname);
+  }
+  return (
+    (result.action === "loj_brand" && ["lessofjosh.com", "www.lessofjosh.com"].includes(result.hostname)) ||
+    (result.action === "media_contact" && ["3563media.com", "www.3563media.com"].includes(result.hostname))
+  );
+}
+
+async function verifyTurnstile(request, env, body, type) {
+  const secret = String(env?.TURNSTILE_SECRET_KEY || "");
+  const token = String(body["cf-turnstile-response"] || "");
+  if (!secret || !token || token.length > 2048) return false;
+
+  const params = new URLSearchParams({ secret, response: token });
+  const remoteIp = String(
+    body.turnstile_remote_ip || request.headers.get("CF-Connecting-IP") || ""
+  ).trim();
+  if (remoteIp) params.set("remoteip", remoteIp);
+
+  try {
+    const response = await (env?.FETCH || globalThis.fetch)(TURNSTILE_SITEVERIFY_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: params,
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!response.ok) return false;
+    return validTurnstileResult(await response.json(), type);
+  } catch {
+    return false;
+  }
+}
+
 export function budgets() {
   return {
     "1000-2500": "$1K-$2.5K",
@@ -370,6 +408,16 @@ export async function handleIntakeSubmission(request, env, options = {}) {
   // Honeypot: bots get a normal-looking success and nothing is sent.
   if (String(body.company_website || "").trim() !== "") {
     return sendResponse(url, anchor, "success", successMessage(type), isAjax);
+  }
+
+  if (!(await verifyTurnstile(request, env, body, type))) {
+    return sendResponse(
+      url,
+      anchor,
+      "invalid",
+      "Please complete the security check and try again.",
+      isAjax
+    );
   }
 
   if (await isRateLimited(request, env, type)) {

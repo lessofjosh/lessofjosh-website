@@ -5,6 +5,7 @@
 	const metricsRoot = mediaKit ? mediaKit.querySelector( '[data-loj-metrics]' ) : null;
 	const downloadLinks = mediaKit ? Array.from( mediaKit.querySelectorAll( '[data-loj-pdf-download]' ) ) : [];
 	const forms = mediaKit ? Array.from( mediaKit.querySelectorAll( 'form[data-loj-form]' ) ) : [];
+	const turnstileWidgets = new Map();
 
 	if ( ! mediaKit ) {
 		return;
@@ -120,6 +121,33 @@
 
 	hydrateMetrics();
 
+	const loadTurnstile = () => {
+		if ( window.turnstile ) {
+			return Promise.resolve();
+		}
+		return new Promise( ( resolve, reject ) => {
+			const script = document.createElement( 'script' );
+			script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+			script.async = true;
+			script.defer = true;
+			script.onload = resolve;
+			script.onerror = () => reject( new Error( 'Security check unavailable.' ) );
+			document.head.appendChild( script );
+		} );
+	};
+
+	loadTurnstile().then( () => {
+		forms.forEach( ( form ) => {
+			const root = form.querySelector( '[data-loj-turnstile]' );
+			if ( root && root.dataset.sitekey ) {
+				turnstileWidgets.set( form, window.turnstile.render( root, {
+					sitekey: root.dataset.sitekey,
+					action: root.dataset.action,
+				} ) );
+			}
+		} );
+	} ).catch( () => {} );
+
 	const fetchFreshIntakeNonce = async ( endpoint ) => {
 		const nonceUrl = new URL( endpoint, window.location.origin );
 		nonceUrl.searchParams.set( 'action', 'loj_theme_intake_nonce' );
@@ -172,6 +200,9 @@
 
 			try {
 				const formData = new FormData( form );
+				if ( ! formData.get( 'cf-turnstile-response' ) ) {
+					throw new Error( 'Please complete the security check.' );
+				}
 				formData.set( 'loj_theme_nonce', await fetchFreshIntakeNonce( endpoint ) );
 
 				const response = await fetch( endpoint, {
@@ -205,6 +236,10 @@
 				if ( submitBtn ) {
 					submitBtn.disabled = false;
 					submitBtn.textContent = originalText;
+				}
+				const widgetId = turnstileWidgets.get( form );
+				if ( widgetId !== undefined ) {
+					window.turnstile.reset( widgetId );
 				}
 			}
 		} );

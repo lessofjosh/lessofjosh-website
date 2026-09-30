@@ -165,6 +165,7 @@ export async function handleHomeRequest(request, env) {
 
   const data = await getThemeData(env, origin);
   const nonce = await createIntakeNonce(env, NONCE_NAME);
+  const turnstileSiteKey = escapeAttr(env?.TURNSTILE_SITE_KEY || "");
   const today = getTodayDateString();
   const budgetChoices = budgets();
   const mediaChoices = mediaTypes();
@@ -534,6 +535,8 @@ export async function handleHomeRequest(request, env) {
 							<label><span>Target date <abbr title="required">*</abbr></span><input type="date" name="target_date" min="${escapeAttr(today)}" required></label>
 						</div>
 						<label><span>Deliverables or other details</span><textarea name="details" rows="4" maxlength="5000" placeholder="Platforms, usage rights, exclusivity, location, product"></textarea></label>
+						<div class="loj-mk__turnstile" data-loj-turnstile data-sitekey="${turnstileSiteKey}" data-action="loj_brand"></div>
+						<noscript><p class="loj-mk__form-note">JavaScript is required for the security check.</p></noscript>
 						<button class="loj-mk__button loj-mk__button--navy" type="submit">Submit</button>
 						<p class="loj-mk__form-note">Goes straight to Josh. You won’t be added to a mailing list.</p>
 					</form>
@@ -566,6 +569,8 @@ export async function handleHomeRequest(request, env) {
 						</div>
 						<label><span>Deadline</span><input type="date" name="deadline" min="${escapeAttr(today)}"></label>
 						<label><span>What do you need? <abbr title="required">*</abbr></span><textarea name="request" rows="4" maxlength="5000" placeholder="The story, format, timing, and where it will run" required></textarea></label>
+						<div class="loj-mk__turnstile" data-loj-turnstile data-sitekey="${turnstileSiteKey}" data-action="loj_media"></div>
+						<noscript><p class="loj-mk__form-note">JavaScript is required for the security check.</p></noscript>
 						<button class="loj-mk__button loj-mk__button--gold" type="submit">Submit</button>
 					</form>
 				</div>

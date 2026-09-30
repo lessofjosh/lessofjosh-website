@@ -16,6 +16,7 @@ function createMockEnv(overrides = {}) {
     SITE_URL: "https://lessofjosh.com",
     SITE_NAME: "Less of Josh",
     THEME_VERSION: "2.0.3",
+    TURNSTILE_SITE_KEY: "test-site-key",
     LOJ_NONCE_SECRET: "unit-test-nonce-secret-2026",
     LOJ_KV: {
       async get(key, opts) {
@@ -65,6 +66,25 @@ function createMockEnv(overrides = {}) {
   };
 }
 
+function createTurnstileFetch() {
+  const used = new Set();
+  return async (url, init) => {
+    assert.equal(String(url), "https://challenges.cloudflare.com/turnstile/v0/siteverify");
+    const token = new URLSearchParams(init.body).get("response");
+    if (token === "network-token") throw new Error("siteverify unavailable");
+    if (used.has(token)) return Response.json({ success: false, "error-codes": ["timeout-or-duplicate"] });
+    used.add(token);
+    const result = {
+      "brand-token": { success: true, action: "loj_brand", hostname: "lessofjosh.com" },
+      "media-token": { success: true, action: "loj_media", hostname: "lessofjosh.com" },
+      "nojs-token": { success: true, action: "loj_media", hostname: "lessofjosh.com" },
+      "contact-token": { success: true, action: "media_contact", hostname: "3563media.com" },
+      "bad-action-token": { success: true, action: "wrong", hostname: "lessofjosh.com" }
+    }[token];
+    return Response.json(result || { success: false });
+  };
+}
+
 describe("Less of Josh Cloudflare Worker", () => {
   it("redirects www.lessofjosh.com and http://lessofjosh.com to https://lessofjosh.com with 301", async () => {
     const env = createMockEnv();
@@ -93,6 +113,10 @@ describe("Less of Josh Cloudflare Worker", () => {
     assert.ok(html.includes('link rel="canonical" href="https://lessofjosh.com/"'));
     assert.ok(html.includes('id="loj-partner-form"'));
     assert.ok(html.includes('id="loj-media-form"'));
+    assert.ok(html.includes('data-sitekey="test-site-key"'));
+    assert.ok(html.includes('data-action="loj_brand"'));
+    assert.ok(html.includes('data-action="loj_media"'));
+    assert.ok(res.headers.get("Content-Security-Policy")?.includes("https://challenges.cloudflare.com"));
     assert.ok(html.includes("application/ld+json"));
     assert.ok(html.includes("1129 Washington ST E #809"));
   });
@@ -115,7 +139,10 @@ describe("Less of Josh Cloudflare Worker", () => {
   });
 
   it("handles Brand Partnership, Media Inquiry, and 3563media relay submissions", async () => {
-    const env = createMockEnv();
+    const env = createMockEnv({
+      TURNSTILE_SECRET_KEY: "test-secret",
+      FETCH: createTurnstileFetch()
+    });
     const futureDate = new Date(Date.now() + 14 * 86400 * 1000).toISOString().slice(0, 10);
 
     // 1. Fetch fresh nonce
@@ -140,7 +167,8 @@ describe("Less of Josh Cloudflare Worker", () => {
       target_date: futureDate,
       campaign_goals: "Launch Q4 campaign on TikTok and Reels",
       details: "Source: 35/63 Media inbound partnership brief (3563media.com)",
-      company_website: ""
+      company_website: "",
+      "cf-turnstile-response": "brand-token"
     });
 
     const brandRes = await worker.fetch(
@@ -158,6 +186,17 @@ describe("Less of Josh Cloudflare Worker", () => {
     assert.equal(env._sentEmails[0].toEmail, "colab@lessofus.com");
     assert.equal(env._sentEmails[0].subject, "[Brand partnership] Acme Outdoor Co");
 
+    const replayRes = await worker.fetch(
+      new Request("https://lessofjosh.com/wp-admin/admin-ajax.php", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: brandBody.toString()
+      }),
+      env
+    );
+    assert.equal(replayRes.status, 400);
+    assert.equal(env._sentEmails.length, 1);
+
     // 3. Submit Media Inquiry form
     const mediaBody = new URLSearchParams({
       action: "loj_theme_media",
@@ -168,7 +207,8 @@ describe("Less of Josh Cloudflare Worker", () => {
       request_type: "podcast",
       deadline: futureDate,
       request: "Feature interview on sustainable weight loss.",
-      company_website: ""
+      company_website: "",
+      "cf-turnstile-response": "media-token"
     });
 
     const mediaRes = await worker.fetch(
@@ -210,17 +250,67 @@ describe("Less of Josh Cloudflare Worker", () => {
     assert.equal(botJson.success, true);
     assert.equal(env._sentEmails.length, 2);
 
-    // 5. No-JS form submission to /wp-admin/admin-post.php redirects to /?loj-intake=success&loj-form=media#media
+    const contactBody = new URLSearchParams(brandBody);
+    contactBody.set("cf-turnstile-response", "contact-token");
+    const contactRes = await worker.fetch(
+      new Request("https://lessofjosh.com/wp-admin/admin-ajax.php", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: contactBody.toString()
+      }),
+      env
+    );
+    assert.equal(contactRes.status, 200);
+    assert.equal(env._sentEmails.length, 3);
+
+    // 5. A normal form POST still works when JavaScript submits a fresh widget token.
+    const noJsBody = new URLSearchParams(mediaBody);
+    noJsBody.set("cf-turnstile-response", "nojs-token");
     const noJsRes = await worker.fetch(
       new Request("https://lessofjosh.com/wp-admin/admin-post.php", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: mediaBody.toString()
+        body: noJsBody.toString()
       }),
       env
     );
     assert.equal(noJsRes.status, 302);
     assert.equal(noJsRes.headers.get("Location"), "/?loj-intake=success&loj-form=media#media");
+  });
+
+  it("fails closed for missing, mismatched, and unavailable Turnstile validation", async () => {
+    const env = createMockEnv({ TURNSTILE_SECRET_KEY: "test-secret", FETCH: createTurnstileFetch() });
+    const nonceRes = await worker.fetch(
+      new Request("https://lessofjosh.com/wp-admin/admin-ajax.php?action=loj_theme_intake_nonce"),
+      env
+    );
+    const nonce = (await nonceRes.json()).data.nonce;
+    const base = {
+      action: "loj_theme_intake",
+      loj_theme_nonce: nonce,
+      brand: "Acme",
+      contact_name: "Jane Doe",
+      contact_email: "jane@acme.example",
+      budget: "2500-5000",
+      target_date: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
+      campaign_goals: "Launch campaign",
+      company_website: ""
+    };
+
+    for (const token of [undefined, "bad-action-token", "network-token"]) {
+      const body = new URLSearchParams(base);
+      if (token) body.set("cf-turnstile-response", token);
+      const response = await worker.fetch(
+        new Request("https://lessofjosh.com/wp-admin/admin-ajax.php", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body
+        }),
+        env
+      );
+      assert.equal(response.status, 400);
+    }
+    assert.equal(env._sentEmails.length, 0);
   });
 
   it("serves the Media Kit PDF on /media-kit-download/ and redirects /media-kit/print", async () => {
