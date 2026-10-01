@@ -1,0 +1,8 @@
+# Cloudflare Worker Secrets for Local Development (wrangler dev)
+# Copy to .dev.vars for local testing.
+# Never commit .dev.vars or secret values to version control.
+
+AUTH_SECRET=your_auth_secret_at_least_32_characters_here
+GOOGLE_CLIENT_ID=348581884026-ml7gknmetgv26n63oj4ujo37qmp8p1le.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your_google_client_secret_here
+OWNER_EMAIL=jwgreenway@gmail.com

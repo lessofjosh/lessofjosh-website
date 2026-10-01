@@ -6,7 +6,7 @@ const BASE_CSP_DIRECTIVES = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://www.googletagmanager.com https://static.cloudflareinsights.com",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://*.google-analytics.com https://*.googletagmanager.com https://*.g.doubleclick.net https://www.google.com",
+  "img-src 'self' data: blob: https://*.google-analytics.com https://*.googletagmanager.com https://*.g.doubleclick.net https://www.google.com https://*.googleusercontent.com",
   "font-src 'self' data:",
   "connect-src 'self' https://challenges.cloudflare.com https://*.google-analytics.com https://analytics.google.com https://*.analytics.google.com https://*.googletagmanager.com https://*.g.doubleclick.net https://www.google.com https://cloudflareinsights.com",
   "media-src 'self'",

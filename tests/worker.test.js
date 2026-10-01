@@ -4,6 +4,15 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import worker from "../src/worker.js";
+import {
+  createAdminSessionCookie,
+  createOAuthStateCookie,
+  base64UrlEncode,
+  base64UrlDecode,
+  DEFAULT_OWNER_EMAIL,
+  DEFAULT_GOOGLE_CLIENT_ID,
+  createDashboardCsrfToken
+} from "../src/auth/google.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.resolve(__dirname, "../public");
@@ -346,5 +355,278 @@ describe("Less of Josh Cloudflare Worker", () => {
 
     const notFound = await worker.fetch(new Request("https://lessofjosh.com/non-existent-page"), env);
     assert.equal(notFound.status, 404);
+  });
+
+  it("redirects unauthenticated /dashboard and /admin requests to /auth/login with 302 and no-store headers", async () => {
+    const env = createMockEnv();
+    const dashRes = await worker.fetch(new Request("https://lessofjosh.com/dashboard"), env);
+    assert.equal(dashRes.status, 302);
+    assert.equal(dashRes.headers.get("Location"), "https://lessofjosh.com/auth/login");
+    assert.equal(dashRes.headers.get("Cache-Control"), "private, no-store, no-cache, must-revalidate");
+    assert.equal(dashRes.headers.get("X-Robots-Tag"), "noindex, nofollow");
+
+    const adminRes = await worker.fetch(new Request("https://lessofjosh.com/admin"), env);
+    assert.equal(adminRes.status, 302);
+    assert.equal(adminRes.headers.get("Location"), "https://lessofjosh.com/auth/login");
+
+    // Tampered session cookie
+    const tamperedRes = await worker.fetch(
+      new Request("https://lessofjosh.com/dashboard", {
+        headers: { Cookie: "loj_admin_session=forged.signature" }
+      }),
+      env
+    );
+    assert.equal(tamperedRes.status, 302);
+    assert.equal(tamperedRes.headers.get("Location"), "https://lessofjosh.com/auth/login");
+  });
+
+  it("protects /api/dashboard/* endpoints requiring owner authentication (401)", async () => {
+    const env = createMockEnv();
+    const refreshRes = await worker.fetch(
+      new Request("https://lessofjosh.com/api/dashboard/refresh", { method: "POST" }),
+      env
+    );
+    assert.equal(refreshRes.status, 401);
+    const refreshJson = await refreshRes.json();
+    assert.match(refreshJson.error, /Unauthorized/);
+    assert.equal(refreshRes.headers.get("Cache-Control"), "private, no-store");
+
+    const settingsRes = await worker.fetch(
+      new Request("https://lessofjosh.com/api/dashboard/settings", { method: "POST" }),
+      env
+    );
+    assert.equal(settingsRes.status, 401);
+  });
+
+  it("initiates Google OAuth flow on /auth/login and /api/auth/google/login with signed state cookie", async () => {
+    const env = createMockEnv();
+    const loginRes = await worker.fetch(new Request("https://lessofjosh.com/auth/login"), env);
+    assert.equal(loginRes.status, 302);
+    const location = loginRes.headers.get("Location");
+    assert.ok(location.startsWith("https://accounts.google.com/o/oauth2/v2/auth"));
+    const locUrl = new URL(location);
+    assert.equal(locUrl.searchParams.get("client_id"), DEFAULT_GOOGLE_CLIENT_ID);
+    assert.equal(locUrl.searchParams.get("redirect_uri"), "https://lessofjosh.com/auth/callback");
+    assert.equal(locUrl.searchParams.get("response_type"), "code");
+    assert.equal(locUrl.searchParams.get("scope"), "openid email profile");
+    assert.ok(locUrl.searchParams.get("state"));
+    assert.ok(locUrl.searchParams.get("nonce"));
+
+    const setCookie = loginRes.headers.get("Set-Cookie");
+    assert.ok(setCookie.includes("__loj_oauth_state="));
+    assert.ok(setCookie.includes("HttpOnly"));
+    assert.ok(setCookie.includes("SameSite=Lax"));
+    assert.ok(setCookie.includes("Secure"));
+  });
+
+  it("handles Google OAuth callback: rejects invalid state, rejects unauthorized emails, and authorizes owner", async () => {
+    const env = createMockEnv();
+
+    // 1. Missing code/state
+    const missingRes = await worker.fetch(new Request("https://lessofjosh.com/auth/callback"), env);
+    assert.equal(missingRes.status, 403);
+    assert.ok((await missingRes.text()).includes("Google Authorization Failed"));
+
+    // 2. Invalid / missing state cookie
+    const badStateRes = await worker.fetch(
+      new Request("https://lessofjosh.com/auth/callback?code=test-code&state=bad-state"),
+      env
+    );
+    assert.equal(badStateRes.status, 403);
+    assert.ok((await badStateRes.text()).includes("State Verification Failed"));
+
+    // 3. Setup mock RSA keypair and tokens
+    const keyPair = await crypto.subtle.generateKey(
+      {
+        name: "RSASSA-PKCS1-v1_5",
+        modulusLength: 2048,
+        publicExponent: new Uint8Array([1, 0, 1]),
+        hash: "SHA-256"
+      },
+      true,
+      ["sign", "verify"]
+    );
+    const publicJwk = await crypto.subtle.exportKey("jwk", keyPair.publicKey);
+    publicJwk.kid = "test-jwt-kid-1";
+
+    const testState = "state-abc-123";
+    const testNonce = "nonce-xyz-789";
+    const stateCookieHeader = (await createOAuthStateCookie(testState, testNonce, env, true)).split(";")[0];
+
+    async function makeIdToken(email, nonce = testNonce, verified = true) {
+      const header = base64UrlEncode(new TextEncoder().encode(JSON.stringify({ alg: "RS256", kid: "test-jwt-kid-1" })));
+      const now = Math.floor(Date.now() / 1000);
+      const payload = base64UrlEncode(new TextEncoder().encode(JSON.stringify({
+        iss: "https://accounts.google.com",
+        aud: DEFAULT_GOOGLE_CLIENT_ID,
+        sub: "google-uid-" + email,
+        email,
+        email_verified: verified,
+        nonce,
+        exp: now + 3600
+      })));
+      const sig = await crypto.subtle.sign(
+        "RSASSA-PKCS1-v1_5",
+        keyPair.privateKey,
+        new TextEncoder().encode(`${header}.${payload}`)
+      );
+      return `${header}.${payload}.${base64UrlEncode(new Uint8Array(sig))}`;
+    }
+
+    const originalFetch = globalThis.fetch;
+    let nextTokenResponse = null;
+
+    globalThis.fetch = async (input, init) => {
+      const urlStr = String(input);
+      if (urlStr.includes("openid-configuration")) {
+        return Response.json({
+          authorization_endpoint: "https://accounts.google.com/o/oauth2/v2/auth",
+          token_endpoint: "https://oauth2.googleapis.com/token",
+          jwks_uri: "https://www.googleapis.com/oauth2/v3/certs",
+          issuer: "https://accounts.google.com"
+        });
+      }
+      if (urlStr.includes("oauth2.googleapis.com/token") || urlStr === "https://oauth2.googleapis.com/token") {
+        return Response.json(nextTokenResponse);
+      }
+      if (urlStr.includes("oauth2/v3/certs")) {
+        return Response.json({ keys: [publicJwk] });
+      }
+      return originalFetch(input, init);
+    };
+
+    try {
+      // 4. Unauthorized email rejection (stranger@gmail.com)
+      nextTokenResponse = {
+        access_token: "mock-access-token",
+        id_token: await makeIdToken("stranger@gmail.com")
+      };
+
+      const unauthorizedRes = await worker.fetch(
+        new Request(`https://lessofjosh.com/auth/callback?code=valid-code&state=${testState}`, {
+          headers: { Cookie: stateCookieHeader }
+        }),
+        env
+      );
+      assert.equal(unauthorizedRes.status, 403);
+      const deniedHtml = await unauthorizedRes.text();
+      assert.ok(deniedHtml.includes("Access Denied — Owner Only"));
+      assert.ok(deniedHtml.includes("stranger@gmail.com"));
+      assert.ok(!unauthorizedRes.headers.get("Set-Cookie").includes("loj_admin_session="));
+
+      // 5. Authorized owner email approval (jwgreenway@gmail.com)
+      nextTokenResponse = {
+        access_token: "mock-access-token-owner",
+        id_token: await makeIdToken(DEFAULT_OWNER_EMAIL)
+      };
+
+      const authorizedRes = await worker.fetch(
+        new Request(`https://lessofjosh.com/auth/callback?code=valid-owner-code&state=${testState}`, {
+          headers: { Cookie: stateCookieHeader }
+        }),
+        env
+      );
+      assert.equal(authorizedRes.status, 302);
+      assert.equal(authorizedRes.headers.get("Location"), "https://lessofjosh.com/dashboard");
+      const cookies = authorizedRes.headers.getSetCookie();
+      const sessionCookie = cookies.find((c) => c.startsWith("loj_admin_session="));
+      assert.ok(sessionCookie);
+      assert.ok(sessionCookie.includes("HttpOnly"));
+      assert.ok(sessionCookie.includes("SameSite=Lax"));
+      assert.ok(sessionCookie.includes("Secure"));
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("renders the private owner dashboard on /dashboard when authenticated with valid session cookie", async () => {
+    const env = createMockEnv();
+    const sessionCookieStr = await createAdminSessionCookie(
+      { sub: "12345", email: DEFAULT_OWNER_EMAIL, name: "Josh Greenway" },
+      env,
+      true
+    );
+    const cookieHeader = sessionCookieStr.split(";")[0];
+
+    const res = await worker.fetch(
+      new Request("https://lessofjosh.com/dashboard", {
+        headers: { Cookie: cookieHeader }
+      }),
+      env
+    );
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get("Content-Type"), "text/html; charset=UTF-8");
+    assert.equal(res.headers.get("Cache-Control"), "private, no-store, no-cache, must-revalidate");
+    assert.equal(res.headers.get("X-Robots-Tag"), "noindex, nofollow");
+
+    const html = await res.text();
+    assert.ok(html.includes("Less of Josh — Private Owner Dashboard"));
+    assert.ok(html.includes(DEFAULT_OWNER_EMAIL));
+    assert.ok(html.includes("TikTok"));
+    assert.ok(html.includes("Instagram"));
+    assert.ok(html.includes("Facebook"));
+    assert.ok(html.includes("YouTube"));
+    assert.ok(html.includes("Pounds Lost So Far"));
+    assert.ok(html.includes("noindex, nofollow"));
+  });
+
+  it("allows authenticated owner to refresh social metrics and update site settings in KV", async () => {
+    const env = createMockEnv();
+    const session = { sub: "12345", email: DEFAULT_OWNER_EMAIL, name: "Josh Greenway" };
+    const sessionCookieStr = await createAdminSessionCookie(session, env, true);
+    const cookieHeader = sessionCookieStr.split(";")[0];
+    const csrfToken = await createDashboardCsrfToken(session, env);
+
+    // 1. Settings update via JSON/API
+    const updateRes = await worker.fetch(
+      new Request("https://lessofjosh.com/api/dashboard/settings", {
+        method: "POST",
+        headers: {
+          Cookie: cookieHeader,
+          "Content-Type": "application/json",
+          "X-Dashboard-Csrf": csrfToken
+        },
+        body: JSON.stringify({
+          current_weight_loss: "235.5",
+          brand_email: "colab@lessofus.com",
+          media_email: "media@lessofjosh.com"
+        })
+      }),
+      env
+    );
+    assert.equal(updateRes.status, 200);
+    const updateJson = await updateRes.json();
+    assert.equal(updateJson.success, true);
+    assert.equal(updateJson.settings.current_weight_loss, "235.5");
+
+    // Verify stored in KV
+    const kvSettings = await env.LOJ_KV.get("site_settings_v1", { type: "json" });
+    assert.equal(kvSettings.current_weight_loss, "235.5");
+
+    // 2. Metrics refresh via API
+    const refreshRes = await worker.fetch(
+      new Request("https://lessofjosh.com/api/dashboard/refresh", {
+        method: "POST",
+        headers: {
+          Cookie: cookieHeader,
+          Accept: "application/json",
+          "X-Dashboard-Csrf": csrfToken
+        }
+      }),
+      env
+    );
+    assert.equal(refreshRes.status, 200);
+    const refreshJson = await refreshRes.json();
+    assert.equal(refreshJson.success, true);
+  });
+
+  it("clears the session cookie on /auth/logout and redirects to /", async () => {
+    const env = createMockEnv();
+    const logoutRes = await worker.fetch(new Request("https://lessofjosh.com/auth/logout"), env);
+    assert.equal(logoutRes.status, 302);
+    assert.equal(logoutRes.headers.get("Location"), "https://lessofjosh.com/");
+    const setCookie = logoutRes.headers.get("Set-Cookie");
+    assert.ok(setCookie.includes("loj_admin_session=;"));
+    assert.ok(setCookie.includes("Max-Age=0"));
   });
 });

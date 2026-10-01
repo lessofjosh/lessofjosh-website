@@ -33,7 +33,9 @@
     "SITE_URL": "https://lessofjosh.com",
     "SITE_NAME": "Less of Josh",
     "THEME_VERSION": "2.0.3",
-    "TURNSTILE_SITE_KEY": "0x4AAAAAACYHgDVM9JWwKJK3"
+    "TURNSTILE_SITE_KEY": "0x4AAAAAACYHgDVM9JWwKJK3",
+    "OWNER_EMAIL": "jwgreenway@gmail.com",
+    "GOOGLE_CLIENT_ID": "348581884026-ml7gknmetgv26n63oj4ujo37qmp8p1le.apps.googleusercontent.com"
   },
   "observability": {
     "enabled": true

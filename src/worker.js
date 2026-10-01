@@ -8,6 +8,14 @@ import { handleMetricsRestRequest, refreshAllMetrics, handleOAuthCallback } from
 import { handleWpAdminEndpoint } from "./forms/index.js";
 import { isPrintRedirectRequest, handlePrintRedirect, isPdfDownloadRequest, handlePdfDownload } from "./pdf/index.js";
 import { handleHomeRequest } from "./routes/home.js";
+import {
+  handleDashboardAuthLogin,
+  handleDashboardAuthCallback,
+  handleDashboardAuthLogout,
+  handleDashboardPage,
+  handleDashboardApiRefresh,
+  handleDashboardApiSettings
+} from "./routes/dashboard.js";
 import { handleSitemapIndex, handlePagesSitemap } from "./routes/seo.js";
 import { handleNotFound } from "./routes/not-found.js";
 
@@ -125,7 +133,33 @@ export default {
       return withSecurityHeaders(handleOAuthCallback(url), isHttps);
     }
 
-    // 7. Form intake & nonce endpoints (/wp-admin/admin-ajax.php, /wp-admin/admin-post.php, /api/intake)
+    // 7. Private Owner Dashboard & Google Authentication (Owner-Only)
+    if (cleanPath === "/auth/login" || cleanPath === "/api/auth/google/login") {
+      const res = await handleDashboardAuthLogin(request, env, isHttps);
+      return withSecurityHeaders(res, isHttps);
+    }
+    if (cleanPath === "/auth/callback" || cleanPath === "/api/auth/google/callback") {
+      const res = await handleDashboardAuthCallback(request, env, isHttps);
+      return withSecurityHeaders(res, isHttps);
+    }
+    if (cleanPath === "/auth/logout" || cleanPath === "/api/auth/google/logout") {
+      const res = handleDashboardAuthLogout(request, env, isHttps);
+      return withSecurityHeaders(res, isHttps);
+    }
+    if (cleanPath === "/api/dashboard/refresh") {
+      const res = await handleDashboardApiRefresh(request, env, isHttps);
+      return withSecurityHeaders(res, isHttps);
+    }
+    if (cleanPath === "/api/dashboard/settings") {
+      const res = await handleDashboardApiSettings(request, env, isHttps);
+      return withSecurityHeaders(res, isHttps);
+    }
+    if (cleanPath === "/dashboard" || cleanPath === "/admin") {
+      const res = await handleDashboardPage(request, env, isHttps);
+      return withSecurityHeaders(res, isHttps);
+    }
+
+    // 8. Form intake & nonce endpoints (/wp-admin/admin-ajax.php, /wp-admin/admin-post.php, /api/intake)
     if (cleanPath === "/wp-admin/admin-ajax.php" || cleanPath === "/api/intake") {
       const res = await handleWpAdminEndpoint(request, env, true);
       return withSecurityHeaders(res, isHttps);

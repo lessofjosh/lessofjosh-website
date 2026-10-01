@@ -1,5 +1,9 @@
 User-agent: *
 Disallow: /wp-admin/
+Disallow: /dashboard
+Disallow: /admin
+Disallow: /auth/
+Disallow: /api/dashboard/
 Allow: /wp-admin/admin-ajax.php
 
 Sitemap: https://lessofjosh.com/wp-sitemap.xml
