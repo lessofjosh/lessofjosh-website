@@ -16,12 +16,20 @@
   ],
   "assets": {
     "directory": "./public",
-    "binding": "ASSETS"
+    "binding": "ASSETS",
+    "run_worker_first": true
   },
   "kv_namespaces": [
     {
       "binding": "LOJ_KV",
       "id": "e8ee96e002e74988aba0dbe55f86115f"
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "less-of-josh-commandcenter",
+      "database_id": "7149ac6c-9432-47e0-9874-70f53de39c02"
     }
   ],
   "triggers": {

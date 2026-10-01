@@ -3,13 +3,14 @@
  *
  * Implements strict owner-only access:
  *   - Google login only (no username/password, no arbitrary registrations)
- *   - Server-side email allowlist verification (OWNER_EMAIL, default: jwgreenway@gmail.com)
+ *   - Server-side email allowlist verification (exactly two approved Google accounts)
  *   - PKCE / state / nonce CSRF protection
  *   - RS256 JWKS Google ID token signature verification
  *   - Web Crypto HMAC-SHA256 signed session cookies (HttpOnly, Secure, SameSite=Lax)
  */
 
-export const DEFAULT_OWNER_EMAIL = "jwgreenway@gmail.com";
+export const DEFAULT_ALLOWED_EMAILS = ["jwgreenway@gmail.com", "ritagreenway304@gmail.com"];
+export const DEFAULT_OWNER_EMAIL = DEFAULT_ALLOWED_EMAILS[0];
 export const DEFAULT_GOOGLE_CLIENT_ID = "348581884026-ml7gknmetgv26n63oj4ujo37qmp8p1le.apps.googleusercontent.com";
 export const STATE_COOKIE_NAME = "__loj_oauth_state";
 export const SESSION_COOKIE_NAME = "loj_admin_session";
@@ -18,6 +19,14 @@ export const SESSION_TTL_SECONDS = 7 * 24 * 3600; // 7 days
 
 export function getOwnerEmail(env) {
   return String(env?.OWNER_EMAIL || DEFAULT_OWNER_EMAIL).trim().toLowerCase();
+}
+
+export function getAllowedEmails() {
+  return [...DEFAULT_ALLOWED_EMAILS];
+}
+
+export function isEmailAuthorized(email, env) {
+  return typeof email === "string" && getAllowedEmails(env).includes(email.trim().toLowerCase());
 }
 
 export function getGoogleClientId(env) {
@@ -162,10 +171,10 @@ export async function getGoogleEndpoints() {
   };
 }
 
-export async function createOAuthStateCookie(state, nonce, env, isHttps = true) {
+export async function createOAuthStateCookie(state, nonce, env, isHttps = true, redirect = "/dashboard") {
   const secret = getAuthSecret(env);
   const signed = await signPayload(
-    { state, nonce, exp: Date.now() + STATE_TTL_SECONDS * 1000 },
+    { state, nonce, redirect, exp: Date.now() + STATE_TTL_SECONDS * 1000 },
     secret
   );
   const secureFlag = isHttps ? "; Secure" : "";
@@ -179,7 +188,7 @@ export async function verifyOAuthStateCookie(cookieHeader, expectedState, env) {
   const payload = await verifyPayload(raw, secret);
   if (!payload || !payload.exp || payload.exp < Date.now()) return null;
   if (!payload.state || payload.state !== expectedState) return null;
-  return payload.nonce || null;
+  return payload;
 }
 
 export function clearOAuthStateCookie(isHttps = true) {
@@ -192,7 +201,7 @@ export async function createAdminSessionCookie(userInfo, env, isHttps = true) {
   const payload = {
     sub: userInfo.sub,
     email: userInfo.email.trim().toLowerCase(),
-    name: userInfo.name || "Josh Greenway",
+    name: userInfo.name || "Authorized user",
     picture: userInfo.picture || "",
     role: "owner",
     exp: Date.now() + SESSION_TTL_SECONDS * 1000
@@ -209,8 +218,7 @@ export async function verifyAdminSession(cookieHeader, env) {
   const payload = await verifyPayload(raw, secret);
   if (!payload || !payload.exp || payload.exp < Date.now()) return null;
 
-  const allowedOwner = getOwnerEmail(env);
-  if (payload.email !== allowedOwner) {
+  if (!isEmailAuthorized(payload.email, env)) {
     return null;
   }
   return payload;

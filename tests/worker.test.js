@@ -9,9 +9,11 @@ import {
   createOAuthStateCookie,
   base64UrlEncode,
   base64UrlDecode,
+  DEFAULT_ALLOWED_EMAILS,
   DEFAULT_OWNER_EMAIL,
   DEFAULT_GOOGLE_CLIENT_ID,
-  createDashboardCsrfToken
+  createDashboardCsrfToken,
+  verifyOAuthStateCookie
 } from "../src/auth/google.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -91,6 +93,64 @@ function createTurnstileFetch() {
       "bad-action-token": { success: true, action: "wrong", hostname: "lessofjosh.com" }
     }[token];
     return Response.json(result || { success: false });
+  };
+}
+
+function createMockD1() {
+  const tables = { sponsorships: [], revenue_entries: [] };
+  return {
+    tables,
+    prepare(sql) {
+      let values = [];
+      return {
+        bind(...bound) { values = bound; return this; },
+        async all() {
+          const table = sql.match(/FROM\s+(\w+)/i)?.[1];
+          return { results: [...(tables[table] || [])] };
+        },
+        async first() {
+          const table = sql.match(/FROM\s+(\w+)/i)?.[1];
+          const rows = tables[table] || [];
+          if (/WHERE id = \?/i.test(sql)) return rows.find((row) => row.id === Number(values[0])) || null;
+          if (/WHERE sponsorship_id = \?/i.test(sql)) return rows.find((row) => row.sponsorship_id === Number(values[0]) && row.source === "sponsorship-sync") || null;
+          if (/ORDER BY id DESC LIMIT 1/i.test(sql)) return rows.at(-1) || null;
+          return null;
+        },
+        async run() {
+          const insert = sql.match(/^INSERT INTO (\w+) \(([^)]+)\)/i);
+          if (insert) {
+            const table = insert[1];
+            const columns = insert[2].split(",").map((column) => column.trim());
+            const row = Object.fromEntries(columns.map((column, index) => [column, values[index]]));
+            row.id = Math.max(0, ...(tables[table] || []).map((item) => item.id)) + 1;
+            tables[table].push(row);
+            return { meta: { last_row_id: row.id, changes: 1 } };
+          }
+          const update = sql.match(/^UPDATE (\w+) SET (.+) WHERE id = \?/i);
+          if (update) {
+            const columns = update[2].split(",").map((part) => part.split("=")[0].trim());
+            const row = tables[update[1]].find((item) => item.id === Number(values.at(-1)));
+            if (!row) return { meta: { changes: 0 } };
+            columns.forEach((column, index) => { row[column] = values[index]; });
+            return { meta: { changes: 1 } };
+          }
+          const deletion = sql.match(/^DELETE FROM (\w+) WHERE id = \?/i);
+          if (deletion) {
+            const index = tables[deletion[1]].findIndex((row) => row.id === Number(values[0]));
+            if (index < 0) return { meta: { changes: 0 } };
+            tables[deletion[1]].splice(index, 1);
+            return { meta: { changes: 1 } };
+          }
+          const sponsorshipDeletion = sql.match(/^DELETE FROM (\w+) WHERE sponsorship_id = \?/i);
+          if (sponsorshipDeletion) {
+            const before = tables[sponsorshipDeletion[1]].length;
+            tables[sponsorshipDeletion[1]] = tables[sponsorshipDeletion[1]].filter((row) => row.sponsorship_id !== Number(values[0]) || row.source !== "sponsorship-sync");
+            return { meta: { changes: before - tables[sponsorshipDeletion[1]].length } };
+          }
+          throw new Error(`Unsupported mock SQL: ${sql}`);
+        }
+      };
+    }
   };
 }
 
@@ -398,6 +458,94 @@ describe("Less of Josh Cloudflare Worker", () => {
     assert.equal(settingsRes.status, 401);
   });
 
+  it("protects every Command Center page, asset, hostname, and API entry point", async () => {
+    const env = createMockEnv();
+    for (const pathName of ["/commandcenter", "/commandcenter/", "/commandcenter//?view=tasks", "/commandcenter/app.js", "/commandcenter/private.json"]) {
+      const response = await worker.fetch(new Request(`https://lessofjosh.com${pathName}`), env);
+      assert.equal(response.status, 302, pathName);
+      assert.equal(response.headers.get("Location"), "https://lessofjosh.com/auth/login?redirect=/commandcenter");
+      assert.equal(response.headers.get("X-Robots-Tag"), "noindex, nofollow, noarchive");
+    }
+
+    const www = await worker.fetch(new Request("https://www.lessofjosh.com/commandcenter?view=tasks"), env);
+    assert.equal(www.status, 301);
+    assert.equal(www.headers.get("Location"), "https://lessofjosh.com/commandcenter?view=tasks");
+
+    for (const request of [
+      new Request("https://lessofjosh.com/api/commandcenter/dashboard"),
+      new Request("https://lessofjosh.com/api/commandcenter/sponsorships/", { method: "POST" }),
+      new Request("https://lessofjosh.com/api/commandcenter/sponsorships/1", { method: "DELETE" })
+    ]) {
+      const response = await worker.fetch(request, env);
+      assert.equal(response.status, 401);
+      assert.match((await response.json()).error, /Unauthorized/);
+    }
+
+    assert.equal((await worker.fetch(new Request("https://lessofjosh.com/CommandCenter"), env)).status, 404);
+    assert.equal((await worker.fetch(new Request("https://lessofjosh.com/%63ommandcenter-secret"), env)).status, 404);
+  });
+
+  it("allows both listed Google accounts and rejects a signed session for any other account", async () => {
+    const env = createMockEnv();
+    for (const email of DEFAULT_ALLOWED_EMAILS) {
+      const sessionCookie = await createAdminSessionCookie({ sub: `sub-${email}`, email, name: email }, env, true);
+      const cookie = sessionCookie.split(";")[0];
+      const page = await worker.fetch(new Request("https://lessofjosh.com/commandcenter/", { headers: { Cookie: cookie } }), env);
+      assert.equal(page.status, 200, email);
+      assert.match(await page.text(), /Less of Josh Command Center/);
+
+      const asset = await worker.fetch(new Request("https://lessofjosh.com/commandcenter/app.js", { headers: { Cookie: cookie } }), env);
+      assert.equal(asset.status, 200, email);
+      assert.match(await asset.text(), /api\/commandcenter\/meta/);
+    }
+
+    const unauthorizedCookie = (await createAdminSessionCookie({ sub: "stranger", email: "stranger@gmail.com" }, env, true)).split(";")[0];
+    const page = await worker.fetch(new Request("https://lessofjosh.com/commandcenter", { headers: { Cookie: unauthorizedCookie } }), env);
+    assert.equal(page.status, 302);
+    const api = await worker.fetch(new Request("https://lessofjosh.com/api/commandcenter/meta", { headers: { Cookie: unauthorizedCookie } }), env);
+    assert.equal(api.status, 401);
+  });
+
+  it("requires CSRF for Command Center mutations and supports authenticated CRUD", async () => {
+    const DB = createMockD1();
+    const env = createMockEnv({ DB });
+    const session = { sub: "12345", email: DEFAULT_OWNER_EMAIL, name: "Josh Greenway" };
+    const cookie = (await createAdminSessionCookie(session, env, true)).split(";")[0];
+    const csrf = await createDashboardCsrfToken(session, env);
+
+    const missingCsrf = await worker.fetch(new Request("https://lessofjosh.com/api/commandcenter/sponsorships", {
+      method: "POST", headers: { Cookie: cookie, "Content-Type": "application/json" }, body: JSON.stringify({ brand: "Test Brand" })
+    }), env);
+    assert.equal(missingCsrf.status, 403);
+
+    const created = await worker.fetch(new Request("https://lessofjosh.com/api/commandcenter/sponsorships", {
+      method: "POST",
+      headers: { Cookie: cookie, "Content-Type": "application/json", "X-Dashboard-Csrf": csrf },
+      body: JSON.stringify({ brand: "Test Brand", status: "Prospect", notes: "Create check" })
+    }), env);
+    assert.equal(created.status, 201);
+    const item = await created.json();
+    assert.equal(item.brand, "Test Brand");
+
+    const updated = await worker.fetch(new Request(`https://lessofjosh.com/api/commandcenter/sponsorships/${item.id}`, {
+      method: "PUT",
+      headers: { Cookie: cookie, "Content-Type": "application/json", "X-Dashboard-Csrf": csrf },
+      body: JSON.stringify({ notes: "Update check" })
+    }), env);
+    assert.equal(updated.status, 200);
+    assert.equal((await updated.json()).notes, "Update check");
+
+    const fetched = await worker.fetch(new Request(`https://lessofjosh.com/api/commandcenter/sponsorships/${item.id}`, { headers: { Cookie: cookie } }), env);
+    assert.equal(fetched.status, 200);
+    assert.equal((await fetched.json()).brand, "Test Brand");
+
+    const deleted = await worker.fetch(new Request(`https://lessofjosh.com/api/commandcenter/sponsorships/${item.id}`, {
+      method: "DELETE", headers: { Cookie: cookie, "X-Dashboard-Csrf": csrf }
+    }), env);
+    assert.equal(deleted.status, 200);
+    assert.equal((await deleted.json()).deleted, true);
+  });
+
   it("initiates Google OAuth flow on /auth/login and /api/auth/google/login with signed state cookie", async () => {
     const env = createMockEnv();
     const loginRes = await worker.fetch(new Request("https://lessofjosh.com/auth/login"), env);
@@ -417,6 +565,15 @@ describe("Less of Josh Cloudflare Worker", () => {
     assert.ok(setCookie.includes("HttpOnly"));
     assert.ok(setCookie.includes("SameSite=Lax"));
     assert.ok(setCookie.includes("Secure"));
+
+    const commandCenterLogin = await worker.fetch(new Request("https://lessofjosh.com/auth/login?redirect=/commandcenter"), env);
+    const commandCenterUrl = new URL(commandCenterLogin.headers.get("Location"));
+    const statePayload = await verifyOAuthStateCookie(
+      commandCenterLogin.headers.get("Set-Cookie").split(";")[0],
+      commandCenterUrl.searchParams.get("state"),
+      env
+    );
+    assert.equal(statePayload.redirect, "/commandcenter");
   });
 
   it("handles Google OAuth callback: rejects invalid state, rejects unauthorized emails, and authorizes owner", async () => {

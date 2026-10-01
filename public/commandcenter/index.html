@@ -1,0 +1,1935 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Less of Josh Command Center</title>
+  <meta name="robots" content="noindex,nofollow,noarchive" />
+  <link rel="stylesheet" href="/commandcenter/styles.css" />
+</head>
+<body>
+  <div class="app-layout">
+    <!-- SIDEBAR NAVIGATION -->
+    <aside class="sidebar">
+      <div class="brand-header">
+        <div class="brand-badge">35/63</div>
+        <div class="brand-titles">
+          <div class="brand-main">LESS OF JOSH</div>
+          <div class="brand-sub">35/63 MEDIA OPS</div>
+        </div>
+      </div>
+
+      <nav class="nav-menu" aria-label="Main Navigation">
+        <div class="nav-group-label">BUSINESS</div>
+        <button class="nav-item active" data-view="dashboard" title="Shortcut: 1">
+          <span class="nav-label">Weekly Priority</span>
+          <span class="nav-badge" id="nav-badge-priority">0</span>
+        </button>
+        <button class="nav-item" data-view="sponsorships" title="Shortcut: 2">
+          <span class="nav-label">Sponsorships</span>
+          <span class="nav-badge muted" id="nav-badge-sponsorships">0</span>
+        </button>
+        <button class="nav-item" data-view="media" title="Shortcut: 3">
+          <span class="nav-label">Media Outreach</span>
+          <span class="nav-badge muted" id="nav-badge-media">0</span>
+        </button>
+        <button class="nav-item" data-view="affiliates" title="Shortcut: 4">
+          <span class="nav-label">Affiliates</span>
+          <span class="nav-badge muted" id="nav-badge-affiliates">0</span>
+        </button>
+        <button class="nav-item" data-view="revenue" title="Shortcut: 5">
+          <span class="nav-label">Revenue</span>
+        </button>
+
+        <div class="nav-group-label">CONTENT</div>
+        <button class="nav-item" data-view="content" title="Shortcut: 6">
+          <span class="nav-label">Content Pipeline</span>
+          <span class="nav-badge muted" id="nav-badge-content">0</span>
+        </button>
+        <button class="nav-item" data-view="growth" title="Shortcut: 7">
+          <span class="nav-label">Audience Growth</span>
+          <span class="nav-badge muted" id="nav-badge-growth">0</span>
+        </button>
+        <button class="nav-item" data-view="goals" title="Shortcut: 8">
+          <span class="nav-label">90-Day Goals</span>
+          <span class="nav-badge muted" id="nav-badge-goals">0</span>
+        </button>
+        <button class="nav-item" data-view="projects" title="Shortcut: 9">
+          <span class="nav-label">Projects &amp; Cookbook</span>
+          <span class="nav-badge muted" id="nav-badge-projects">0</span>
+        </button>
+
+        <div class="nav-group-label">OPERATIONS</div>
+        <button class="nav-item" data-view="tasks">
+          <span class="nav-label">Tasks / Execution</span>
+          <span class="nav-badge muted" id="nav-badge-tasks">0</span>
+        </button>
+        <button class="nav-item" data-view="reference">
+          <span class="nav-label">Reference Library</span>
+          <span class="nav-badge muted" id="nav-badge-reference">0</span>
+        </button>
+        <button class="nav-item" data-view="health">
+          <span class="nav-label">Health Log</span>
+        </button>
+        <button class="nav-item" data-view="backups">
+          <span class="nav-label">Import &amp; Backups</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-quick-actions">
+        <div class="sidebar-section-label">QUICK ENTRY (N)</div>
+        <button class="btn btn-primary btn-block" id="btn-quick-sponsorship">+ New Sponsorship</button>
+        <button class="btn btn-secondary btn-block" id="btn-quick-media">+ New Media Pitch</button>
+        <button class="btn btn-secondary btn-block" id="btn-quick-content">+ New Content Idea</button>
+        <button class="btn btn-secondary btn-block" id="btn-quick-task">+ New Task</button>
+        <button class="btn btn-secondary btn-block" id="btn-quick-revenue">+ Log Revenue</button>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="storage-indicator">
+          <span class="status-dot online"></span>
+          <span>Cloudflare D1 Storage</span>
+        </div>
+        <div class="shortcut-hints">
+          <span><kbd>/</kbd> Search</span>
+          <span><kbd>N</kbd> New</span>
+          <span><kbd>1-9</kbd> Views</span>
+        </div>
+        <a class="btn btn-ghost btn-block" href="/auth/logout">Sign out</a>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT AREA -->
+    <div class="main-wrapper">
+      <!-- TOP COMMAND BAR -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <h1 class="view-title" id="current-view-title">What Should Josh Work On Next?</h1>
+          <span class="today-pill" id="topbar-today-date"></span>
+        </div>
+
+        <div class="topbar-search-wrapper">
+          <div class="global-search-box">
+            <span class="search-icon">⌕</span>
+            <input
+              type="search"
+              id="global-search-input"
+              placeholder="Search brands, media, content, affiliates, goals, tasks, playbooks... ( / or ⌘K )"
+              autocomplete="off"
+            />
+            <kbd class="search-kbd">/</kbd>
+          </div>
+          <div class="global-search-results hidden" id="global-search-dropdown"></div>
+        </div>
+
+        <div class="topbar-actions">
+          <button class="btn btn-ghost btn-sm" id="btn-topbar-import-csv" title="Import Sponsorships CSV">Import CSV</button>
+          <button class="btn btn-ghost btn-sm" id="btn-topbar-snapshot" title="Save Local Backup Snapshot">Save Backup</button>
+        </div>
+      </header>
+
+      <!-- TOAST NOTIFICATION -->
+      <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+      <!-- =================================================================== -->
+      <!-- VIEW 1: WEEKLY PRIORITY DASHBOARD                                   -->
+      <!-- =================================================================== -->
+      <main id="view-dashboard" class="view-section active">
+        <div class="summary-strip" id="weekly-summary-strip"></div>
+
+        <div class="priority-grid">
+          <!-- Overdue Sponsorship Follow-ups -->
+          <section class="panel priority-panel">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title">Overdue &amp; Due Brand Follow-ups</h2>
+                <p class="panel-subtitle">Active brand leads requiring outreach today (excludes unreviewed historical dates)</p>
+              </div>
+              <span class="count-pill danger" id="count-overdue-followups">0</span>
+            </div>
+            <div class="panel-body" id="list-overdue-followups"></div>
+          </section>
+
+          <!-- Overdue Media Follow-ups -->
+          <section class="panel priority-panel">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title">Overdue &amp; Due Media Follow-ups</h2>
+                <p class="panel-subtitle">Podcasts, TV, press &amp; radio requiring follow-up today</p>
+              </div>
+              <span class="count-pill warning" id="count-media-followups">0</span>
+            </div>
+            <div class="panel-body" id="list-media-followups"></div>
+          </section>
+
+          <!-- Upcoming Deliverables -->
+          <section class="panel priority-panel">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title">Upcoming &amp; Overdue Deliverables</h2>
+                <p class="panel-subtitle">Contracted sponsor videos &amp; due dates</p>
+              </div>
+              <span class="count-pill warning" id="count-upcoming-deliverables">0</span>
+            </div>
+            <div class="panel-body" id="list-upcoming-deliverables"></div>
+          </section>
+
+          <!-- Unpaid Invoices -->
+          <section class="panel priority-panel">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title">Unpaid Invoices &amp; Ready to Invoice</h2>
+                <p class="panel-subtitle">Money owed or posted deals awaiting invoice</p>
+              </div>
+              <span class="count-pill accent" id="count-unpaid-invoices">0</span>
+            </div>
+            <div class="panel-body" id="list-unpaid-invoices"></div>
+          </section>
+
+          <!-- Content Ready to Edit -->
+          <section class="panel priority-panel">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title">Content Ready to Edit</h2>
+                <p class="panel-subtitle">Filmed pieces or active edits in the pipeline</p>
+              </div>
+              <span class="count-pill info" id="count-content-edit">0</span>
+            </div>
+            <div class="panel-body" id="list-content-edit"></div>
+          </section>
+
+          <!-- Content Ready to Publish -->
+          <section class="panel priority-panel">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title">Content Ready to Publish</h2>
+                <p class="panel-subtitle">Exported / Ready / Scheduled posts</p>
+              </div>
+              <span class="count-pill success" id="count-content-publish">0</span>
+            </div>
+            <div class="panel-body" id="list-content-publish"></div>
+          </section>
+
+          <!-- Cycle 2 Goals Needing Action -->
+          <section class="panel priority-panel">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title">Cycle 2 Goals Needing Action</h2>
+                <p class="panel-subtitle">Current Sept 1 – Nov 30, 2026 targets in progress</p>
+              </div>
+              <span class="count-pill info" id="count-goals-action">0</span>
+            </div>
+            <div class="panel-body" id="list-goals-action"></div>
+          </section>
+
+          <!-- Active Weekly Execution Tasks -->
+          <section class="panel priority-panel">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title">Active Weekly Execution Tasks</h2>
+                <p class="panel-subtitle">Current non-completed tasks not awaiting historical review</p>
+              </div>
+              <span class="count-pill neutral" id="count-active-tasks">0</span>
+            </div>
+            <div class="panel-body" id="list-active-tasks"></div>
+          </section>
+
+          <!-- Upcoming Deadlines -->
+          <section class="panel priority-panel">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title">Upcoming Deadlines (14 Days)</h2>
+                <p class="panel-subtitle">Deliverables, follow-ups, media &amp; scheduled uploads</p>
+              </div>
+              <span class="count-pill neutral" id="count-upcoming-deadlines">0</span>
+            </div>
+            <div class="panel-body" id="list-upcoming-deadlines"></div>
+          </section>
+
+          <!-- High-Value Open Opportunities -->
+          <section class="panel priority-panel">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title">High-Value Open Opportunities</h2>
+                <p class="panel-subtitle">Active brand opportunities ranked by agreed rate / cash offered</p>
+              </div>
+              <span class="count-pill accent" id="count-high-value">0</span>
+            </div>
+            <div class="panel-body" id="list-high-value"></div>
+          </section>
+
+          <!-- Needs Review Triage Queue -->
+          <section class="panel priority-panel span-full">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title">Historical Dates Flagged for Review (Needs Review Queue)</h2>
+                <p class="panel-subtitle">Historical Notion follow-up &amp; task dates held back from active alarms until reviewed or rescheduled</p>
+              </div>
+              <span class="count-pill warning" id="count-needs-review">0</span>
+            </div>
+            <div class="panel-body" id="list-needs-review"></div>
+          </section>
+        </div>
+      </main>
+
+      <!-- =================================================================== -->
+      <!-- VIEW 2: SPONSORSHIP CRM                                             -->
+      <!-- =================================================================== -->
+      <main id="view-sponsorships" class="view-section hidden">
+        <div class="toolbar">
+          <div class="filter-pills" id="sponsorship-quick-tabs">
+            <button class="pill active" data-qf="all">All Deals</button>
+            <button class="pill" data-qf="followup">Needs Follow-up</button>
+            <button class="pill" data-qf="needs_review">Needs Review</button>
+            <button class="pill" data-qf="deliverables">Deliverables Due</button>
+            <button class="pill" data-qf="unpaid">Unpaid / To Invoice</button>
+          </div>
+
+          <div class="toolbar-controls">
+            <input type="search" id="sponsorship-search" class="input-sm" placeholder="Filter brands, contacts, notes..." />
+            <select id="sponsorship-status-filter" class="select-sm">
+              <option value="all">All Statuses</option>
+            </select>
+            <input type="text" id="sponsorship-category-filter" class="input-sm" placeholder="Category..." />
+            <select id="sponsorship-sort" class="select-sm">
+              <option value="updated_at:desc">Sort: Recently Updated</option>
+              <option value="follow_up_date:asc">Sort: Follow-up Date (Earliest)</option>
+              <option value="due_date:asc">Sort: Due Date (Earliest)</option>
+              <option value="effective_value:desc">Sort: Deal Value (High → Low)</option>
+              <option value="brand:asc">Sort: Brand (A → Z)</option>
+            </select>
+            <button class="btn btn-secondary btn-sm" id="btn-sponsorship-import-csv">Import CSV</button>
+            <a class="btn btn-ghost btn-sm" href="/api/commandcenter/export/csv/sponsorships" download>Export CSV</a>
+            <button class="btn btn-primary btn-sm" id="btn-new-sponsorship">+ New Sponsorship</button>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Brand &amp; Category</th>
+                <th>Contact</th>
+                <th>Status &amp; Stage</th>
+                <th>Outreach / Follow-up</th>
+                <th>Offer / Agreed Rate</th>
+                <th>Deliverables &amp; Due</th>
+                <th>Checklist</th>
+                <th>Notes / Next Action</th>
+                <th class="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="sponsorships-tbody"></tbody>
+          </table>
+        </div>
+      </main>
+
+      <!-- =================================================================== -->
+      <!-- VIEW 3: MEDIA OUTREACH CRM                                          -->
+      <!-- =================================================================== -->
+      <main id="view-media" class="view-section hidden">
+        <div class="toolbar">
+          <div class="filter-pills" id="media-quick-tabs">
+            <button class="pill active" data-mqf="all">All Outlets</button>
+            <button class="pill" data-mqf="followup">Needs Follow-up</button>
+            <button class="pill" data-mqf="needs_review">Needs Review</button>
+            <button class="pill" data-mqf="published">Published / Booked</button>
+          </div>
+
+          <div class="toolbar-controls">
+            <input type="search" id="media-search" class="input-sm" placeholder="Filter outlet, host, angle, notes..." />
+            <select id="media-status-filter" class="select-sm">
+              <option value="all">All Statuses</option>
+            </select>
+            <select id="media-category-filter" class="select-sm">
+              <option value="all">All Categories</option>
+            </select>
+            <a class="btn btn-ghost btn-sm" href="/api/commandcenter/export/csv/media" download>Export CSV</a>
+            <button class="btn btn-primary btn-sm" id="btn-new-media">+ New Media Pitch</button>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Outlet / Show</th>
+                <th>Category &amp; Priority</th>
+                <th>Host / Contact</th>
+                <th>Status</th>
+                <th>Pitch Date &amp; Follow-up</th>
+                <th>Story Angle</th>
+                <th>Links &amp; Notes</th>
+                <th class="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="media-tbody"></tbody>
+          </table>
+        </div>
+      </main>
+
+      <!-- =================================================================== -->
+      <!-- VIEW 4: AFFILIATE TRACKING                                          -->
+      <!-- =================================================================== -->
+      <main id="view-affiliates" class="view-section hidden">
+        <div class="toolbar">
+          <div class="filter-pills" id="affiliate-quick-tabs">
+            <button class="pill active" data-af="all">All Programs</button>
+            <button class="pill" data-af="has_code">Has Coupon Code</button>
+            <button class="pill" data-af="has_revenue">Has Logged Revenue</button>
+          </div>
+
+          <div class="toolbar-controls">
+            <input type="search" id="affiliate-search" class="input-sm" placeholder="Filter program, code, link, notes..." />
+            <select id="affiliate-sort" class="select-sm">
+              <option value="id:asc">Sort: Default Order</option>
+              <option value="revenue:desc">Sort: Revenue (High → Low)</option>
+              <option value="clicks:desc">Sort: Clicks (High → Low)</option>
+              <option value="program:asc">Sort: Program (A → Z)</option>
+              <option value="last_updated:desc">Sort: Recently Updated</option>
+            </select>
+            <a class="btn btn-ghost btn-sm" href="/api/commandcenter/export/csv/affiliates" download>Export CSV</a>
+            <button class="btn btn-primary btn-sm" id="btn-new-affiliate">+ Add Affiliate Program</button>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Program &amp; Status</th>
+                <th>Affiliate URL</th>
+                <th>Coupon Code</th>
+                <th>Commission</th>
+                <th class="num">Monthly / Total Rev</th>
+                <th class="num">Clicks</th>
+                <th>Conversions / Products</th>
+                <th>Notes</th>
+                <th>Updated</th>
+                <th class="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="affiliates-tbody"></tbody>
+          </table>
+        </div>
+      </main>
+
+      <!-- =================================================================== -->
+      <!-- VIEW 5: REVENUE DASHBOARD                                           -->
+      <!-- =================================================================== -->
+      <main id="view-revenue" class="view-section hidden">
+        <div class="kpi-grid" id="revenue-kpi-grid"></div>
+
+        <div class="revenue-split-grid">
+          <!-- Revenue By Category Table -->
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title">Revenue by Stream</h2>
+                <p class="panel-subtitle">Actual received income across all 8 business categories (no fabricated numbers)</p>
+              </div>
+            </div>
+            <div class="table-container flush">
+              <table class="data-table compact">
+                <thead>
+                  <tr>
+                    <th>Revenue Stream</th>
+                    <th class="num">Current Month</th>
+                    <th class="num">Previous Month</th>
+                    <th class="num">YTD</th>
+                    <th class="num">All-Time</th>
+                  </tr>
+                </thead>
+                <tbody id="revenue-category-tbody"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- Expected & Outstanding Sponsorship Breakdown -->
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title">Expected Sponsorships &amp; Outstanding Invoices</h2>
+                <p class="panel-subtitle">Live from Sponsorship CRM (Contracted, Content Due, Posted, Invoiced)</p>
+              </div>
+            </div>
+            <div class="panel-body" id="revenue-expected-list"></div>
+          </section>
+        </div>
+
+        <!-- Revenue Ledger Section -->
+        <section class="panel mt-16">
+          <div class="panel-header">
+            <div>
+              <h2 class="panel-title">Revenue Ledger</h2>
+              <p class="panel-subtitle">All logged payouts &amp; auto-synced paid sponsorships</p>
+            </div>
+            <div class="toolbar-controls">
+              <input type="search" id="revenue-search" class="input-sm" placeholder="Search source or notes..." />
+              <select id="revenue-category-filter" class="select-sm">
+                <option value="all">All Categories</option>
+              </select>
+              <select id="revenue-status-filter" class="select-sm">
+                <option value="all">All Statuses</option>
+                <option value="Received">Received</option>
+                <option value="Pending">Pending</option>
+                <option value="Invoiced">Invoiced</option>
+              </select>
+              <a class="btn btn-ghost btn-sm" href="/api/commandcenter/export/csv/revenue" download>Export CSV</a>
+              <button class="btn btn-primary btn-sm" id="btn-new-revenue">+ Log Revenue Entry</button>
+            </div>
+          </div>
+          <div class="table-container flush">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Category</th>
+                  <th>Source / Description</th>
+                  <th>Status</th>
+                  <th class="num">Amount</th>
+                  <th>Notes</th>
+                  <th class="text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="revenue-ledger-tbody"></tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+
+      <!-- =================================================================== -->
+      <!-- VIEW 6: CONTENT PIPELINE                                            -->
+      <!-- =================================================================== -->
+      <main id="view-content" class="view-section hidden">
+        <div class="toolbar">
+          <div class="filter-pills" id="content-stage-tabs">
+            <button class="pill active" data-stage="all">All Stages</button>
+            <button class="pill" data-stage="Idea">Idea</button>
+            <button class="pill" data-stage="Planned">Planned</button>
+            <button class="pill" data-stage="Filming">Filming</button>
+            <button class="pill" data-stage="Editing">Editing</button>
+            <button class="pill" data-stage="Ready">Ready</button>
+            <button class="pill" data-stage="Scheduled">Scheduled</button>
+            <button class="pill" data-stage="Published">Published</button>
+          </div>
+
+          <div class="toolbar-controls">
+            <div class="view-toggle-group">
+              <button class="btn btn-secondary btn-sm active" id="btn-content-view-table">Table</button>
+              <button class="btn btn-secondary btn-sm" id="btn-content-view-board">Board</button>
+            </div>
+            <input type="search" id="content-search" class="input-sm" placeholder="Filter title, pillar, sponsor..." />
+            <select id="content-platform-filter" class="select-sm">
+              <option value="all">All Platforms</option>
+              <option value="YouTube">YouTube</option>
+              <option value="TikTok">TikTok</option>
+              <option value="Instagram">Instagram</option>
+              <option value="Facebook">Facebook</option>
+              <option value="YouTube Shorts">YouTube Shorts</option>
+            </select>
+            <select id="content-format-filter" class="select-sm">
+              <option value="all">All Formats</option>
+              <option value="Short-form">Short-form</option>
+              <option value="Long-form">Long-form</option>
+            </select>
+            <a class="btn btn-ghost btn-sm" href="/api/commandcenter/export/csv/content" download>Export CSV</a>
+            <button class="btn btn-primary btn-sm" id="btn-new-content">+ New Content Idea</button>
+          </div>
+        </div>
+
+        <!-- Content Table View -->
+        <div id="content-table-wrapper" class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Idea / Title &amp; Pillar</th>
+                <th>Platform &amp; Format</th>
+                <th>Pipeline Stage</th>
+                <th>Filming Status</th>
+                <th>Editing Status</th>
+                <th>Scheduled / Published</th>
+                <th>Sponsor / Affiliate</th>
+                <th>Hook / Performance / Notes</th>
+                <th class="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="content-tbody"></tbody>
+          </table>
+        </div>
+
+        <!-- Content Kanban Board View -->
+        <div id="content-board-wrapper" class="pipeline-board hidden"></div>
+      </main>
+
+      <!-- =================================================================== -->
+      <!-- VIEW 7: AUDIENCE / GROWTH TRACKER                                   -->
+      <!-- =================================================================== -->
+      <main id="view-growth" class="view-section hidden">
+        <div class="kpi-grid" id="growth-kpi-grid"></div>
+
+        <div class="toolbar">
+          <div>
+            <strong class="text-sm">Time-Series Snapshots</strong>
+            <span class="text-muted text-xs"> • Historical snapshots are preserved; new snapshots calculate platform &amp; total deltas automatically.</span>
+          </div>
+          <div class="toolbar-controls">
+            <a class="btn btn-ghost btn-sm" href="/api/commandcenter/export/csv/growth" download>Export CSV</a>
+            <button class="btn btn-primary btn-sm" id="btn-new-growth">+ Log Audience Snapshot</button>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Snapshot Label</th>
+                <th>Date</th>
+                <th class="num">Facebook</th>
+                <th class="num">Instagram</th>
+                <th class="num">TikTok</th>
+                <th class="num">YouTube</th>
+                <th class="num">Total Audience</th>
+                <th class="num">Net Change</th>
+                <th class="num">28d Views</th>
+                <th>Weight / Revenue / Notes</th>
+                <th class="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="growth-tbody"></tbody>
+          </table>
+        </div>
+      </main>
+
+      <!-- =================================================================== -->
+      <!-- VIEW 8: 90-DAY GOALS                                                -->
+      <!-- =================================================================== -->
+      <main id="view-goals" class="view-section hidden">
+        <div class="toolbar">
+          <div class="filter-pills" id="goals-cycle-tabs">
+            <button class="pill active" data-cycle="Cycle 2">Cycle 2 (Current: Sept 1 – Nov 30, 2026)</button>
+            <button class="pill" data-cycle="Cycle 1">Cycle 1 (Historical: Jul–Aug 2026)</button>
+            <button class="pill" data-cycle="all">All Goals</button>
+          </div>
+
+          <div class="toolbar-controls">
+            <input type="search" id="goals-search" class="input-sm" placeholder="Filter goals, metrics, notes..." />
+            <a class="btn btn-ghost btn-sm" href="/api/commandcenter/export/csv/goals" download>Export CSV</a>
+            <button class="btn btn-primary btn-sm" id="btn-new-goal">+ New Goal</button>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Goal &amp; Cycle</th>
+                <th>Area</th>
+                <th>Status</th>
+                <th>Progress</th>
+                <th>Target Value</th>
+                <th>Current Value</th>
+                <th>Deadline</th>
+                <th>Weekly Action / Notes</th>
+                <th class="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="goals-tbody"></tbody>
+          </table>
+        </div>
+      </main>
+
+      <!-- =================================================================== -->
+      <!-- VIEW 9: PROJECTS, COOKBOOK & 3D PRINTING                            -->
+      <!-- =================================================================== -->
+      <main id="view-projects" class="view-section hidden">
+        <!-- Business Projects Section -->
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <h2 class="panel-title">Business &amp; Product Initiatives</h2>
+              <p class="panel-subtitle">Less of Us App, Cookbook Creation, Rooted with Rita, Almost Hidden WV &amp; 35/63 Media</p>
+            </div>
+            <button class="btn btn-primary btn-sm" id="btn-new-project">+ New Project</button>
+          </div>
+          <div class="table-container flush">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Project Name</th>
+                  <th>Category</th>
+                  <th>Status</th>
+                  <th>Pricing / Model</th>
+                  <th>Platform / Distribution</th>
+                  <th>Next Milestone</th>
+                  <th>Notes</th>
+                  <th class="text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="projects-tbody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Cookbook Recipes & 3D Printing Split Grid -->
+        <div class="revenue-split-grid mt-16">
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title">Cookbook Recipes Tracker</h2>
+                <p class="panel-subtitle">Recipes, ingredients, statuses &amp; readiness</p>
+              </div>
+              <button class="btn btn-secondary btn-sm" id="btn-new-recipe">+ Add Recipe</button>
+            </div>
+            <div class="table-container flush">
+              <table class="data-table compact">
+                <thead>
+                  <tr>
+                    <th>Recipe Name</th>
+                    <th>Category</th>
+                    <th>Status</th>
+                    <th>Ingredients</th>
+                    <th>Readiness</th>
+                    <th class="text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="cookbook-tbody"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title">3D Printing &amp; Physical Products</h2>
+                <p class="panel-subtitle">Bambu Lab P1S + AMS projects, props &amp; studio builds</p>
+              </div>
+              <button class="btn btn-secondary btn-sm" id="btn-new-printing">+ Add 3D Print</button>
+            </div>
+            <div class="table-container flush">
+              <table class="data-table compact">
+                <thead>
+                  <tr>
+                    <th>Project Name</th>
+                    <th>Category</th>
+                    <th>Status</th>
+                    <th>Material &amp; Printer</th>
+                    <th>Next Step</th>
+                    <th class="text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="printing-tbody"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      </main>
+
+      <!-- =================================================================== -->
+      <!-- VIEW 10: TASKS / WEEKLY EXECUTION                                   -->
+      <!-- =================================================================== -->
+      <main id="view-tasks" class="view-section hidden">
+        <div class="toolbar">
+          <div class="filter-pills" id="tasks-quick-tabs">
+            <button class="pill active" data-tqf="all">All Tasks</button>
+            <button class="pill" data-tqf="active">Active (Current)</button>
+            <button class="pill" data-tqf="needs_review">Needs Review (Historical)</button>
+            <button class="pill" data-tqf="done">Completed / Historical</button>
+          </div>
+
+          <div class="toolbar-controls">
+            <input type="search" id="tasks-search" class="input-sm" placeholder="Filter tasks, categories, notes..." />
+            <a class="btn btn-ghost btn-sm" href="/api/commandcenter/export/csv/tasks" download>Export CSV</a>
+            <button class="btn btn-primary btn-sm" id="btn-new-task">+ New Task</button>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Task</th>
+                <th>Category</th>
+                <th>Assignee</th>
+                <th>Status</th>
+                <th>Due Date</th>
+                <th>Done</th>
+                <th>Notes</th>
+                <th class="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="tasks-tbody"></tbody>
+          </table>
+        </div>
+      </main>
+
+      <!-- =================================================================== -->
+      <!-- VIEW 11: LOCAL REFERENCE LIBRARY                                    -->
+      <!-- =================================================================== -->
+      <main id="view-reference" class="view-section hidden">
+        <div class="toolbar">
+          <div class="filter-pills" id="reference-category-tabs">
+            <button class="pill active" data-rcat="all">All Documents</button>
+            <button class="pill" data-rcat="Strategy">Strategy &amp; Roadmap</button>
+            <button class="pill" data-rcat="SOP">Playbooks &amp; SOPs</button>
+            <button class="pill" data-rcat="Rates">Rate Card &amp; Terms</button>
+            <button class="pill" data-rcat="Brand">Brand Voice &amp; Rules</button>
+            <button class="pill" data-rcat="Operations">Operations &amp; Email</button>
+            <button class="pill" data-rcat="Equipment">Equipment Inventory</button>
+            <button class="pill" data-rcat="Project">Project Guides</button>
+          </div>
+
+          <div class="toolbar-controls">
+            <input type="search" id="reference-search" class="input-sm" placeholder="Search playbooks, rate card, rules..." />
+            <button class="btn btn-primary btn-sm" id="btn-new-reference">+ New Document</button>
+          </div>
+        </div>
+
+        <div class="reference-layout">
+          <div class="reference-sidebar-list" id="reference-list"></div>
+          <div class="panel reference-reader" id="reference-reader-panel">
+            <div class="empty-state">Select a reference document on the left to read or edit.</div>
+          </div>
+        </div>
+      </main>
+
+      <!-- =================================================================== -->
+      <!-- VIEW 12: HEALTH & TRANSFORMATION LOG (SECONDARY / PRIVATE)          -->
+      <!-- =================================================================== -->
+      <main id="view-health" class="view-section hidden">
+        <div class="toolbar">
+          <div>
+            <strong class="text-sm">Personal Transformation Milestones</strong>
+            <span class="text-muted text-xs"> • Preserved locally from Notion Health &amp; Transformation Tracker</span>
+          </div>
+          <div class="toolbar-controls">
+            <button class="btn btn-primary btn-sm" id="btn-new-health">+ Log Health Entry</button>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Entry Title</th>
+                <th>Date</th>
+                <th class="num">Weight (lbs)</th>
+                <th class="num">Total Lost (lbs)</th>
+                <th class="num">Calories / Protein</th>
+                <th>Workout &amp; Activity</th>
+                <th>Milestone</th>
+                <th>Mental / Non-Scale Victory</th>
+                <th class="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="health-tbody"></tbody>
+          </table>
+        </div>
+      </main>
+
+      <!-- =================================================================== -->
+      <!-- VIEW 13: IMPORT, EXPORT & BACKUPS                                   -->
+      <!-- =================================================================== -->
+      <main id="view-backups" class="view-section hidden">
+        <div class="backup-grid">
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title">Notion Workspace Import &amp; Sync</h2>
+                <p class="panel-subtitle">Idempotent sync from local Notion snapshot + Sept 28–29 operational updates</p>
+              </div>
+              <button class="btn btn-primary btn-sm" id="btn-run-notion-import">Run Idempotent Sync</button>
+            </div>
+            <div class="panel-body stack-12">
+              <div class="text-xs text-muted">
+                Re-running the importer is completely idempotent: existing records are matched by Notion source ID or natural key without creating duplicates.
+              </div>
+              <div id="import-logs-list" class="stack-8"></div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title">Full JSON Backup &amp; Restore</h2>
+                <p class="panel-subtitle">Complete local database snapshots and 1-click restore</p>
+              </div>
+            </div>
+            <div class="panel-body stack-12">
+              <div class="button-row">
+                <a class="btn btn-primary" href="/api/commandcenter/backup/json" download>Download Full JSON Backup</a>
+                <button class="btn btn-secondary" id="btn-create-disk-snapshot">Save Snapshot to Disk</button>
+              </div>
+
+              <hr class="divider" />
+
+              <div class="restore-box">
+                <label class="form-label">Restore from JSON Backup File</label>
+                <div class="button-row">
+                  <input type="file" id="restore-file-input" accept=".json,application/json" class="input-sm" />
+                  <select id="restore-mode-select" class="select-sm">
+                    <option value="replace">Mode: Replace All Data</option>
+                    <option value="merge">Mode: Merge / Upsert IDs</option>
+                  </select>
+                  <button class="btn btn-warning btn-sm" id="btn-restore-json-file">Restore File</button>
+                </div>
+                <p class="text-muted text-xs mt-4">
+                  An automatic safety backup is saved to disk before any restore is applied.
+                </p>
+              </div>
+
+              <hr class="divider" />
+
+              <div>
+                <div class="form-label">Saved Disk Snapshots (<code>data/backups/</code>)</div>
+                <div id="snapshots-list" class="stack-8 mt-8"></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel span-full">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title">CSV Exports</h2>
+                <p class="panel-subtitle">Download clean spreadsheet exports of any operational module</p>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div class="button-row">
+                <a class="btn btn-secondary btn-sm" href="/api/commandcenter/export/csv/sponsorships" download>Sponsorships (.csv)</a>
+                <a class="btn btn-secondary btn-sm" href="/api/commandcenter/export/csv/media" download>Media Outreach (.csv)</a>
+                <a class="btn btn-secondary btn-sm" href="/api/commandcenter/export/csv/affiliates" download>Affiliates (.csv)</a>
+                <a class="btn btn-secondary btn-sm" href="/api/commandcenter/export/csv/content" download>Content Pipeline (.csv)</a>
+                <a class="btn btn-secondary btn-sm" href="/api/commandcenter/export/csv/growth" download>Audience Growth (.csv)</a>
+                <a class="btn btn-secondary btn-sm" href="/api/commandcenter/export/csv/goals" download>90-Day Goals (.csv)</a>
+                <a class="btn btn-secondary btn-sm" href="/api/commandcenter/export/csv/tasks" download>Tasks / Execution (.csv)</a>
+                <a class="btn btn-secondary btn-sm" href="/api/commandcenter/export/csv/revenue" download>Revenue Ledger (.csv)</a>
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL 1: SPONSORSHIP CREATE / EDIT                                        -->
+  <!-- ========================================================================= -->
+  <div class="modal-backdrop hidden" id="modal-sponsorship">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <h3 id="modal-sponsorship-title">New Sponsorship Lead</h3>
+        <button class="modal-close" data-close="modal-sponsorship">&times;</button>
+      </div>
+      <form id="form-sponsorship" class="modal-body">
+        <input type="hidden" id="sp-id" />
+        <div class="form-grid-3">
+          <div class="form-group">
+            <label class="form-label">Brand *</label>
+            <input type="text" id="sp-brand" required placeholder="e.g. RØDE, Factor, Goby Meds" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            <input type="text" id="sp-category" placeholder="e.g. Health, Audio/Gear, Nutrition" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            <select id="sp-status"></select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Contact Name</label>
+            <input type="text" id="sp-contact-name" placeholder="Name of rep / partner manager" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Contact Email</label>
+            <input type="text" id="sp-contact-email" placeholder="partner@brand.com" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Website</label>
+            <input type="text" id="sp-website" placeholder="https://..." />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Date First Contacted</label>
+            <input type="date" id="sp-date-first" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Last Contact Date</label>
+            <input type="date" id="sp-date-last" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Follow-up Date <span class="text-muted text-xs">(Auto +5d if blank)</span></label>
+            <input type="date" id="sp-date-followup" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Product Offered</label>
+            <input type="text" id="sp-product-offered" placeholder="Gifted item or N/A" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Cash Offered ($)</label>
+            <input type="number" step="0.01" id="sp-cash-offered" placeholder="0.00" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Agreed Rate ($)</label>
+            <input type="number" step="0.01" id="sp-agreed-rate" placeholder="0.00" />
+          </div>
+
+          <div class="form-group span-2">
+            <label class="form-label">Deliverables</label>
+            <input type="text" id="sp-deliverables" placeholder="e.g. 1x 60s YouTube Integration + 1x IG Reel" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Deliverable Due Date</label>
+            <input type="date" id="sp-due-date" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Priority</label>
+            <input type="text" id="sp-priority" placeholder="High / Medium / Low" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Deal Type</label>
+            <input type="text" id="sp-deal-type" placeholder="Flat Fee / Affiliate + Gifting / Hybrid" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Next Action</label>
+            <input type="text" id="sp-next-action" placeholder="Send follow-up #1 / Pitch Q4 bundle" />
+          </div>
+        </div>
+
+        <div class="checkbox-strip mt-12">
+          <label class="check-item"><input type="checkbox" id="sp-pitch-sent" /> Pitch Sent</label>
+          <label class="check-item"><input type="checkbox" id="sp-content-posted" /> Content Posted</label>
+          <label class="check-item"><input type="checkbox" id="sp-invoice-sent" /> Invoice Sent</label>
+          <label class="check-item"><input type="checkbox" id="sp-payment-received" /> Payment Received</label>
+          <label class="check-item"><input type="checkbox" id="sp-needs-review" /> Flagged for Historical Review</label>
+        </div>
+
+        <div class="form-grid-2 mt-12">
+          <div class="form-group">
+            <label class="form-label">Brand Response / Why They Fit</label>
+            <textarea id="sp-response" rows="2" placeholder="Summary of their reply or fit..."></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Notes</label>
+            <textarea id="sp-notes" rows="2" placeholder="Usage rights, exclusivity, payment terms, etc."></textarea>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-danger hidden" id="btn-delete-sponsorship">Delete</button>
+          <div class="spacer"></div>
+          <button type="button" class="btn btn-ghost" data-close="modal-sponsorship">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Sponsorship</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL 2: MEDIA OUTREACH CREATE / EDIT                                     -->
+  <!-- ========================================================================= -->
+  <div class="modal-backdrop hidden" id="modal-media">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <h3 id="modal-media-title">Media Outreach Pitch</h3>
+        <button class="modal-close" data-close="modal-media">&times;</button>
+      </div>
+      <form id="form-media" class="modal-body">
+        <input type="hidden" id="md-id" />
+        <div class="form-grid-3">
+          <div class="form-group">
+            <label class="form-label">Outlet / Show Name *</label>
+            <input type="text" id="md-name" required placeholder="e.g. Mountain Messenger, Tubby Podcast" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            <select id="md-category"></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            <select id="md-status"></select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Host / Contact Name</label>
+            <input type="text" id="md-host" placeholder="Host or producer name" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Contact Email / Info</label>
+            <input type="text" id="md-email" placeholder="producer@show.com or form URL" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Priority</label>
+            <input type="text" id="md-priority" placeholder="High / Medium / Low" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Pitch Date</label>
+            <input type="date" id="md-pitch-date" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Follow-up Date</label>
+            <input type="date" id="md-followup-date" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Location</label>
+            <input type="text" id="md-location" placeholder="West Virginia / National" />
+          </div>
+
+          <div class="form-group span-2">
+            <label class="form-label">Website / Pitch URL</label>
+            <input type="text" id="md-website" placeholder="https://..." />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Episode / Feature Link</label>
+            <input type="text" id="md-episode-link" placeholder="https://..." />
+          </div>
+        </div>
+
+        <div class="checkbox-strip mt-12">
+          <label class="check-item"><input type="checkbox" id="md-followup-sent" /> Follow-up Sent</label>
+          <label class="check-item"><input type="checkbox" id="md-needs-review" /> Flagged for Historical Review</label>
+        </div>
+
+        <div class="form-grid-2 mt-12">
+          <div class="form-group">
+            <label class="form-label">Story Angle</label>
+            <textarea id="md-story-angle" rows="2" placeholder="Pitch hook and story angle..."></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Notes</label>
+            <textarea id="md-notes" rows="2" placeholder="Context, air date, producer notes..."></textarea>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-danger hidden" id="btn-delete-media">Delete</button>
+          <div class="spacer"></div>
+          <button type="button" class="btn btn-ghost" data-close="modal-media">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Media Pitch</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL 3: AFFILIATE CREATE / EDIT                                          -->
+  <!-- ========================================================================= -->
+  <div class="modal-backdrop hidden" id="modal-affiliate">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modal-affiliate-title">Affiliate Partnership</h3>
+        <button class="modal-close" data-close="modal-affiliate">&times;</button>
+      </div>
+      <form id="form-affiliate" class="modal-body">
+        <input type="hidden" id="af-id" />
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label">Program Name *</label>
+            <input type="text" id="af-program" required placeholder="e.g. Amazon, Goby Meds, RØDE, NEEWER" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            <input type="text" id="af-status" placeholder="Active / Pending / Paused" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Commission Structure</label>
+            <input type="text" id="af-commission" placeholder="e.g. 10% per sale / $50 per referral" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Coupon / Creator Code</label>
+            <input type="text" id="af-code" placeholder="e.g. LESSOFJOSH" />
+          </div>
+
+          <div class="form-group span-2">
+            <label class="form-label">Affiliate URL</label>
+            <input type="text" id="af-url" placeholder="https://..." />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Total Revenue ($)</label>
+            <input type="number" step="0.01" id="af-revenue" placeholder="Optional" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Clicks</label>
+            <input type="number" step="1" id="af-clicks" placeholder="Optional" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Conversion Info</label>
+            <input type="text" id="af-conversions" placeholder="e.g. 18 orders" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Last Updated</label>
+            <input type="date" id="af-updated" />
+          </div>
+
+          <div class="form-group span-2">
+            <label class="form-label">Products Promoted</label>
+            <input type="text" id="af-products" placeholder="Featured items or categories..." />
+          </div>
+        </div>
+
+        <div class="form-group mt-12">
+          <label class="form-label">Notes / Where Placed</label>
+          <textarea id="af-notes" rows="2" placeholder="Portal login URL, link placement, payout threshold..."></textarea>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-danger hidden" id="btn-delete-affiliate">Delete</button>
+          <div class="spacer"></div>
+          <button type="button" class="btn btn-ghost" data-close="modal-affiliate">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Affiliate</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL 4: CONTENT PIPELINE CREATE / EDIT                                   -->
+  <!-- ========================================================================= -->
+  <div class="modal-backdrop hidden" id="modal-content">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <h3 id="modal-content-title">Content Pipeline Item</h3>
+        <button class="modal-close" data-close="modal-content">&times;</button>
+      </div>
+      <form id="form-content" class="modal-body">
+        <input type="hidden" id="ct-id" />
+        <input type="hidden" id="ct-parent-id" />
+
+        <div class="form-grid-3">
+          <div class="form-group span-2">
+            <label class="form-label">Idea / Title *</label>
+            <input type="text" id="ct-title" required placeholder="Video title or hook concept..." />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Content Pillar</label>
+            <input type="text" id="ct-pillar" list="pillar-suggestions" placeholder="e.g. Weight Loss, Gear, Routine" />
+            <datalist id="pillar-suggestions">
+              <option value="Weight Loss"></option>
+              <option value="Workout"></option>
+              <option value="Food / Recipes"></option>
+              <option value="Motivation"></option>
+              <option value="Mindset / Faith"></option>
+              <option value="Behind the Scenes"></option>
+            </datalist>
+          </div>
+
+          <div class="form-group" id="ct-single-platform-group">
+            <label class="form-label">Primary Platform</label>
+            <select id="ct-platform">
+              <option value="YouTube">YouTube</option>
+              <option value="TikTok">TikTok</option>
+              <option value="Instagram">Instagram</option>
+              <option value="Facebook">Facebook</option>
+              <option value="YouTube Shorts">YouTube Shorts</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Format</label>
+            <select id="ct-format">
+              <option value="Short-form">Short-form</option>
+              <option value="Long-form">Long-form</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Pipeline Stage</label>
+            <select id="ct-stage"></select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Filming Status</label>
+            <select id="ct-filming-status"></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Editing Status</label>
+            <select id="ct-editing-status"></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Scheduled Date</label>
+            <input type="date" id="ct-scheduled-date" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Published Date</label>
+            <input type="date" id="ct-published-date" />
+          </div>
+          <div class="form-group span-2">
+            <label class="form-label">Published URL</label>
+            <input type="text" id="ct-url" placeholder="https://..." />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Sponsor</label>
+            <input type="text" id="ct-sponsor" list="sponsor-suggestions" placeholder="Brand name (if sponsored)" />
+            <datalist id="sponsor-suggestions"></datalist>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Affiliate Connection</label>
+            <input type="text" id="ct-affiliate" list="affiliate-suggestions" placeholder="e.g. Goby Meds, RØDE, Amazon" />
+            <datalist id="affiliate-suggestions"></datalist>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Performance</label>
+            <input type="text" id="ct-performance" placeholder="Viral / Above Average / Average" />
+          </div>
+        </div>
+
+        <!-- Multi-platform output generator when creating a new idea -->
+        <div class="multi-platform-box mt-12" id="ct-multi-platform-box">
+          <div class="form-label">Also Create Linked Platform Outputs for This Idea (Optional):</div>
+          <div class="checkbox-strip">
+            <label class="check-item"><input type="checkbox" class="ct-extra-platform" value="YouTube:Long-form" /> YouTube (Long-form)</label>
+            <label class="check-item"><input type="checkbox" class="ct-extra-platform" value="YouTube Shorts:Short-form" /> YouTube Shorts</label>
+            <label class="check-item"><input type="checkbox" class="ct-extra-platform" value="TikTok:Short-form" /> TikTok</label>
+            <label class="check-item"><input type="checkbox" class="ct-extra-platform" value="Instagram:Short-form" /> Instagram</label>
+            <label class="check-item"><input type="checkbox" class="ct-extra-platform" value="Facebook:Short-form" /> Facebook</label>
+          </div>
+        </div>
+
+        <div class="form-grid-2 mt-12">
+          <div class="form-group">
+            <label class="form-label">Hook / First 3 Seconds</label>
+            <textarea id="ct-hook" rows="2" placeholder="Opening hook..."></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Notes / Script / Talking Points</label>
+            <textarea id="ct-notes" rows="2" placeholder="Key talking points, CTA, B-roll notes..."></textarea>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-danger hidden" id="btn-delete-content">Delete</button>
+          <div class="spacer"></div>
+          <button type="button" class="btn btn-ghost" data-close="modal-content">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Content Item</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL 5: REVENUE ENTRY CREATE / EDIT                                      -->
+  <!-- ========================================================================= -->
+  <div class="modal-backdrop hidden" id="modal-revenue">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modal-revenue-title">Log Revenue Entry</h3>
+        <button class="modal-close" data-close="modal-revenue">&times;</button>
+      </div>
+      <form id="form-revenue" class="modal-body">
+        <input type="hidden" id="rv-id" />
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label">Category *</label>
+            <select id="rv-category" required></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Amount ($) *</label>
+            <input type="number" step="0.01" id="rv-amount" required placeholder="0.00" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Source / Description *</label>
+            <input type="text" id="rv-source" required placeholder="e.g. Facebook Monetization, TikTok Shop" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date *</label>
+            <input type="date" id="rv-date" required />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            <select id="rv-status">
+              <option value="Received">Received (Paid)</option>
+              <option value="Pending">Pending</option>
+              <option value="Invoiced">Invoiced (Unpaid)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group mt-12">
+          <label class="form-label">Notes</label>
+          <textarea id="rv-notes" rows="2" placeholder="Payout reference, period covered, etc."></textarea>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-danger hidden" id="btn-delete-revenue">Delete</button>
+          <div class="spacer"></div>
+          <button type="button" class="btn btn-ghost" data-close="modal-revenue">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Revenue Entry</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL 6: AUDIENCE GROWTH SNAPSHOT CREATE / EDIT                           -->
+  <!-- ========================================================================= -->
+  <div class="modal-backdrop hidden" id="modal-growth">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modal-growth-title">Audience Growth Snapshot</h3>
+        <button class="modal-close" data-close="modal-growth">&times;</button>
+      </div>
+      <form id="form-growth" class="modal-body">
+        <input type="hidden" id="gr-id" />
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label">Label *</label>
+            <input type="text" id="gr-label" required placeholder="e.g. Week of Oct 1, 2026" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Snapshot Date *</label>
+            <input type="date" id="gr-date" required />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Facebook Followers</label>
+            <input type="number" step="1" id="gr-fb" placeholder="0" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Instagram Followers</label>
+            <input type="number" step="1" id="gr-ig" placeholder="0" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">TikTok Followers</label>
+            <input type="number" step="1" id="gr-tt" placeholder="0" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">YouTube Subscribers</label>
+            <input type="number" step="1" id="gr-yt" placeholder="0" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">28-Day Views</label>
+            <input type="number" step="1" id="gr-views" placeholder="Optional" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Weight (lbs)</label>
+            <input type="number" step="0.1" id="gr-weight" placeholder="Optional" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Weekly Revenue ($)</label>
+            <input type="number" step="0.01" id="gr-revenue" placeholder="Optional" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Posts Published</label>
+            <input type="number" step="1" id="gr-posts" placeholder="Optional" />
+          </div>
+        </div>
+
+        <div class="form-group mt-12">
+          <label class="form-label">Notes / Top Content</label>
+          <textarea id="gr-notes" rows="2" placeholder="Drivers of growth, viral clips, milestones..."></textarea>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-danger hidden" id="btn-delete-growth">Delete</button>
+          <div class="spacer"></div>
+          <button type="button" class="btn btn-ghost" data-close="modal-growth">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Snapshot</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL 7: 90-DAY GOAL CREATE / EDIT                                        -->
+  <!-- ========================================================================= -->
+  <div class="modal-backdrop hidden" id="modal-goal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modal-goal-title">90-Day Goal</h3>
+        <button class="modal-close" data-close="modal-goal">&times;</button>
+      </div>
+      <form id="form-goal" class="modal-body">
+        <input type="hidden" id="gl-id" />
+        <div class="form-grid-2">
+          <div class="form-group span-2">
+            <label class="form-label">Goal Title *</label>
+            <input type="text" id="gl-title" required placeholder="e.g. Reach 75,000 Total Followers Across All Platforms" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Cycle</label>
+            <select id="gl-cycle">
+              <option value="Cycle 2 (Current)">Cycle 2 (Current)</option>
+              <option value="Cycle 1 (Historical)">Cycle 1 (Historical)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            <input type="text" id="gl-category" placeholder="Growth / Revenue / Content / Health" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            <select id="gl-status">
+              <option value="In Progress">In Progress</option>
+              <option value="Not Started">Not Started</option>
+              <option value="Completed">Completed</option>
+              <option value="Missed">Missed</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Priority</label>
+            <input type="text" id="gl-priority" placeholder="High / Medium / Low" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Progress (%)</label>
+            <input type="number" step="1" min="0" max="100" id="gl-progress" placeholder="0" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Target Date</label>
+            <input type="date" id="gl-target-date" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Target Metric</label>
+            <input type="text" id="gl-target-metric" placeholder="e.g. 75,000 combined followers" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Current Value</label>
+            <input type="text" id="gl-current-value" placeholder="e.g. 57,465" />
+          </div>
+        </div>
+
+        <div class="form-group mt-12">
+          <label class="form-label">Notes</label>
+          <textarea id="gl-notes" rows="2" placeholder="Action plan, checkpoints, context..."></textarea>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-danger hidden" id="btn-delete-goal">Delete</button>
+          <div class="spacer"></div>
+          <button type="button" class="btn btn-ghost" data-close="modal-goal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Goal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL 8: TASK CREATE / EDIT                                               -->
+  <!-- ========================================================================= -->
+  <div class="modal-backdrop hidden" id="modal-task">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modal-task-title">Weekly Execution Task</h3>
+        <button class="modal-close" data-close="modal-task">&times;</button>
+      </div>
+      <form id="form-task" class="modal-body">
+        <input type="hidden" id="tk-id" />
+        <div class="form-grid-2">
+          <div class="form-group span-2">
+            <label class="form-label">Task *</label>
+            <input type="text" id="tk-title" required placeholder="Task description..." />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            <select id="tk-category">
+              <option value="Content">Content</option>
+              <option value="Brand Outreach">Brand Outreach</option>
+              <option value="Admin / Business">Admin / Business</option>
+              <option value="App">App</option>
+              <option value="Health / Personal">Health / Personal</option>
+              <option value="Engagement">Engagement</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Priority</label>
+            <select id="tk-priority">
+              <option value="High">High</option>
+              <option value="Medium">Medium</option>
+              <option value="Low">Low</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            <select id="tk-status">
+              <option value="To Do">To Do</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Done">Done</option>
+              <option value="Skipped">Skipped</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Due Date</label>
+            <input type="date" id="tk-due-date" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Day</label>
+            <input type="text" id="tk-day" placeholder="Monday / Tuesday / Daily..." />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Week Of</label>
+            <input type="text" id="tk-week" placeholder="Week 1 / Sept 29..." />
+          </div>
+        </div>
+
+        <div class="checkbox-strip mt-12">
+          <label class="check-item"><input type="checkbox" id="tk-completed" /> Completed</label>
+          <label class="check-item"><input type="checkbox" id="tk-needs-review" /> Flagged for Historical Review</label>
+        </div>
+
+        <div class="form-group mt-12">
+          <label class="form-label">Notes</label>
+          <textarea id="tk-notes" rows="2" placeholder="Task notes..."></textarea>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-danger hidden" id="btn-delete-task">Delete</button>
+          <div class="spacer"></div>
+          <button type="button" class="btn btn-ghost" data-close="modal-task">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Task</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL 9: BUSINESS PROJECT CREATE / EDIT                                   -->
+  <!-- ========================================================================= -->
+  <div class="modal-backdrop hidden" id="modal-project">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modal-project-title">Business Project</h3>
+        <button class="modal-close" data-close="modal-project">&times;</button>
+      </div>
+      <form id="form-project" class="modal-body">
+        <input type="hidden" id="pj-id" />
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label">Project Name *</label>
+            <input type="text" id="pj-name" required placeholder="e.g. Less of Us App, Cookbook Creation" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            <input type="text" id="pj-category" placeholder="App / Product, Book / Digital..." />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            <input type="text" id="pj-status" placeholder="In Development, Submitted for Review..." />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Pricing Model</label>
+            <input type="text" id="pj-pricing" placeholder="e.g. $9.99 one-time purchase" />
+          </div>
+
+          <div class="form-group span-2">
+            <label class="form-label">Platform / Distribution</label>
+            <input type="text" id="pj-platform" placeholder="e.g. Apple App Store & Google Play" />
+          </div>
+
+          <div class="form-group span-2">
+            <label class="form-label">Next Milestone</label>
+            <input type="text" id="pj-milestone" placeholder="Next concrete milestone..." />
+          </div>
+        </div>
+
+        <div class="form-group mt-12">
+          <label class="form-label">Description &amp; Notes</label>
+          <textarea id="pj-notes" rows="3" placeholder="Project details, notes, roadmap..."></textarea>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-danger hidden" id="btn-delete-project">Delete</button>
+          <div class="spacer"></div>
+          <button type="button" class="btn btn-ghost" data-close="modal-project">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Project</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL 10: COOKBOOK RECIPE CREATE / EDIT                                   -->
+  <!-- ========================================================================= -->
+  <div class="modal-backdrop hidden" id="modal-recipe">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modal-recipe-title">Cookbook Recipe</h3>
+        <button class="modal-close" data-close="modal-recipe">&times;</button>
+      </div>
+      <form id="form-recipe" class="modal-body">
+        <input type="hidden" id="rc-id" />
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label">Recipe Name *</label>
+            <input type="text" id="rc-name" required placeholder="e.g. High-Protein Breakfast Bowl" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            <input type="text" id="rc-category" placeholder="Breakfast / Lunch / Dinner / Snack" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            <input type="text" id="rc-status" placeholder="Idea / Tested / Filmed / Final for Book" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Calories / Protein (g)</label>
+            <div class="button-row">
+              <input type="number" step="1" id="rc-calories" placeholder="Cal" style="width:48%" />
+              <input type="number" step="1" id="rc-protein" placeholder="Pro (g)" style="width:48%" />
+            </div>
+          </div>
+
+          <div class="form-group span-2">
+            <label class="form-label">Video Link</label>
+            <input type="text" id="rc-video" placeholder="https://..." />
+          </div>
+        </div>
+
+        <div class="checkbox-strip mt-12">
+          <label class="check-item"><input type="checkbox" id="rc-in-cookbook" /> Include in Cookbook</label>
+          <label class="check-item"><input type="checkbox" id="rc-photo-taken" /> Photo Taken</label>
+        </div>
+
+        <div class="form-grid-2 mt-12">
+          <div class="form-group">
+            <label class="form-label">Ingredients</label>
+            <textarea id="rc-ingredients" rows="2" placeholder="Ingredients list..."></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Instructions / Story</label>
+            <textarea id="rc-instructions" rows="2" placeholder="Prep instructions & story..."></textarea>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-danger hidden" id="btn-delete-recipe">Delete</button>
+          <div class="spacer"></div>
+          <button type="button" class="btn btn-ghost" data-close="modal-recipe">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Recipe</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL 11: 3D PRINTING PROJECT CREATE / EDIT                               -->
+  <!-- ========================================================================= -->
+  <div class="modal-backdrop hidden" id="modal-printing">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modal-printing-title">3D Printing Project</h3>
+        <button class="modal-close" data-close="modal-printing">&times;</button>
+      </div>
+      <form id="form-printing" class="modal-body">
+        <input type="hidden" id="pr-id" />
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label">Item Name *</label>
+            <input type="text" id="pr-name" required placeholder="e.g. Custom Milestone Weight Loss Coin" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            <input type="text" id="pr-category" placeholder="Content Prop / Custom Design / Merch" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            <input type="text" id="pr-status" placeholder="Idea / Printing / Done / Filmed" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Material &amp; Print Time</label>
+            <input type="text" id="pr-material" placeholder="PLA / PETG..." />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Material Cost ($)</label>
+            <input type="number" step="0.01" id="pr-cost" placeholder="0.00" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Sell Price ($)</label>
+            <input type="number" step="0.01" id="pr-price" placeholder="0.00" />
+          </div>
+        </div>
+
+        <div class="checkbox-strip mt-12">
+          <label class="check-item"><input type="checkbox" id="pr-content-filmed" /> Content Filmed</label>
+          <label class="check-item"><input type="checkbox" id="pr-for-sale" /> For Sale</label>
+        </div>
+
+        <div class="form-group mt-12">
+          <label class="form-label">Notes</label>
+          <textarea id="pr-notes" rows="2" placeholder="Print settings, STL link, notes..."></textarea>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-danger hidden" id="btn-delete-printing">Delete</button>
+          <div class="spacer"></div>
+          <button type="button" class="btn btn-ghost" data-close="modal-printing">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save 3D Print</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL 12: REFERENCE DOCUMENT CREATE / EDIT                                -->
+  <!-- ========================================================================= -->
+  <div class="modal-backdrop hidden" id="modal-reference">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <h3 id="modal-reference-title">Reference Document</h3>
+        <button class="modal-close" data-close="modal-reference">&times;</button>
+      </div>
+      <form id="form-reference" class="modal-body">
+        <input type="hidden" id="rf-id" />
+        <div class="form-grid-3">
+          <div class="form-group span-2">
+            <label class="form-label">Document Title *</label>
+            <input type="text" id="rf-title" required placeholder="e.g. Creator Playbooks & SOPs" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            <select id="rf-category">
+              <option value="Playbook">Playbook</option>
+              <option value="Rate Card">Rate Card</option>
+              <option value="Brand Rules">Brand Rules</option>
+              <option value="Roadmap">Roadmap</option>
+              <option value="Operations">Operations</option>
+              <option value="Project Brief">Project Brief</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group mt-12">
+          <label class="form-label">Summary</label>
+          <input type="text" id="rf-summary" placeholder="Brief summary of this reference document..." />
+        </div>
+
+        <div class="form-group mt-12">
+          <label class="form-label">Content (Markdown)</label>
+          <textarea id="rf-content" rows="12" placeholder="Document content..."></textarea>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-danger hidden" id="btn-delete-reference">Delete</button>
+          <div class="spacer"></div>
+          <button type="button" class="btn btn-ghost" data-close="modal-reference">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Document</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL 13: HEALTH LOG CREATE / EDIT                                        -->
+  <!-- ========================================================================= -->
+  <div class="modal-backdrop hidden" id="modal-health">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modal-health-title">Health &amp; Transformation Entry</h3>
+        <button class="modal-close" data-close="modal-health">&times;</button>
+      </div>
+      <form id="form-health" class="modal-body">
+        <input type="hidden" id="hl-id" />
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label">Entry Title *</label>
+            <input type="text" id="hl-title" required placeholder="e.g. Weekly Check-In" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date</label>
+            <input type="date" id="hl-date" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Current Weight (lbs)</label>
+            <input type="number" step="0.1" id="hl-weight" placeholder="532" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Total Weight Lost (lbs)</label>
+            <input type="number" step="0.1" id="hl-lost" placeholder="183" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Daily Calories Avg</label>
+            <input type="number" step="1" id="hl-calories" placeholder="Optional" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Protein Avg (g)</label>
+            <input type="number" step="1" id="hl-protein" placeholder="Optional" />
+          </div>
+
+          <div class="form-group span-2">
+            <label class="form-label">Milestone Reached</label>
+            <input type="text" id="hl-milestone" placeholder="Milestone..." />
+          </div>
+        </div>
+
+        <div class="form-group mt-12">
+          <label class="form-label">Mental Health / Non-Scale Victory / Notes</label>
+          <textarea id="hl-notes" rows="2" placeholder="Notes..."></textarea>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-danger hidden" id="btn-delete-health">Delete</button>
+          <div class="spacer"></div>
+          <button type="button" class="btn btn-ghost" data-close="modal-health">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Health Entry</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL 14: CSV IMPORT FOR SPONSORSHIPS / CONTACTS                          -->
+  <!-- ========================================================================= -->
+  <div class="modal-backdrop hidden" id="modal-csv-import">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <h3>Import Sponsorships &amp; Contacts from CSV</h3>
+        <button class="modal-close" data-close="modal-csv-import">&times;</button>
+      </div>
+      <div class="modal-body stack-12">
+        <p class="text-muted text-sm">
+          Upload an existing sponsorship or contact spreadsheet (<code>.csv</code>) or paste CSV rows below.
+          Headers like <code>Brand</code>, <code>Contact Name</code>, <code>Contact Email</code>, <code>Status</code>,
+          <code>Agreed Rate</code>, <code>Follow-up Date</code>, and <code>Notes</code> are automatically mapped.
+        </p>
+
+        <div class="button-row">
+          <input type="file" id="csv-file-input" accept=".csv,text/csv" class="input-sm" />
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-preview-csv">Preview Mapping</button>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Or Paste CSV Text Directly</label>
+          <textarea
+            id="csv-paste-textarea"
+            rows="6"
+            placeholder="Brand,Contact Name,Contact Email,Category,Status,Cash Offered,Agreed Rate,Follow-up Date,Notes&#10;RØDE,Sarah Jenkins,sarah@rode.com,Audio,Negotiating,1500,2000,2026-10-02,Interested in Q4 YouTube integration"
+          ></textarea>
+        </div>
+
+        <div id="csv-preview-box" class="csv-preview-box hidden"></div>
+
+        <div class="modal-footer">
+          <div class="spacer"></div>
+          <button type="button" class="btn btn-ghost" data-close="modal-csv-import">Cancel</button>
+          <button type="button" class="btn btn-primary" id="btn-confirm-csv-import">Import Sponsorships</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/commandcenter/app.js"></script>
+</body>
+</html>

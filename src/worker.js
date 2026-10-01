@@ -16,6 +16,7 @@ import {
   handleDashboardApiRefresh,
   handleDashboardApiSettings
 } from "./routes/dashboard.js";
+import { handleCommandCenterPage, handleCommandCenterApi } from "./routes/commandcenter.js";
 import { handleSitemapIndex, handlePagesSitemap } from "./routes/seo.js";
 import { handleNotFound } from "./routes/not-found.js";
 
@@ -156,6 +157,14 @@ export default {
     }
     if (cleanPath === "/dashboard" || cleanPath === "/admin") {
       const res = await handleDashboardPage(request, env, isHttps);
+      return withSecurityHeaders(res, isHttps);
+    }
+    if (cleanPath === "/api/commandcenter" || cleanPath.startsWith("/api/commandcenter/")) {
+      const res = await handleCommandCenterApi(request, env);
+      return withSecurityHeaders(res, isHttps);
+    }
+    if (cleanPath === "/commandcenter" || cleanPath.startsWith("/commandcenter/")) {
+      const res = await handleCommandCenterPage(request, env, isHttps);
       return withSecurityHeaders(res, isHttps);
     }
 

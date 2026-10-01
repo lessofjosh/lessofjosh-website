@@ -4,6 +4,8 @@ Disallow: /dashboard
 Disallow: /admin
 Disallow: /auth/
 Disallow: /api/dashboard/
+Disallow: /commandcenter
+Disallow: /api/commandcenter/
 Allow: /wp-admin/admin-ajax.php
 
 Sitemap: https://lessofjosh.com/wp-sitemap.xml

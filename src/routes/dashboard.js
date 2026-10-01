@@ -11,7 +11,7 @@
  */
 
 import {
-  getOwnerEmail,
+  isEmailAuthorized,
   getGoogleClientId,
   getGoogleEndpoints,
   generateRandomString,
@@ -37,7 +37,9 @@ export async function handleDashboardAuthLogin(request, env, isHttps) {
   const url = new URL(request.url);
   const state = generateRandomString(32);
   const nonce = generateRandomString(32);
-  const stateCookie = await createOAuthStateCookie(state, nonce, env, isHttps);
+  const requestedRedirect = url.searchParams.get("redirect") || "/dashboard";
+  const redirect = ["/dashboard", "/admin", "/commandcenter"].includes(requestedRedirect) ? requestedRedirect : "/dashboard";
+  const stateCookie = await createOAuthStateCookie(state, nonce, env, isHttps, redirect);
   const endpoints = await getGoogleEndpoints();
   const clientId = getGoogleClientId(env);
   const redirectUri = `${url.origin}/auth/callback`;
@@ -85,8 +87,8 @@ export async function handleDashboardAuthCallback(request, env, isHttps) {
   }
 
   const cookieHeader = request.headers.get("cookie") || "";
-  const expectedNonce = await verifyOAuthStateCookie(cookieHeader, state, env);
-  if (!expectedNonce) {
+  const statePayload = await verifyOAuthStateCookie(cookieHeader, state, env);
+  if (!statePayload?.nonce) {
     return new Response(renderAccessDeniedHtml("State Verification Failed", "OAuth state verification failed or expired. Please try signing in again."), {
       status: 403,
       headers: {
@@ -105,14 +107,13 @@ export async function handleDashboardAuthCallback(request, env, isHttps) {
       throw new Error("Token exchange response did not include id_token");
     }
 
-    const userInfo = await validateGoogleIdToken(tokenResult.id_token, expectedNonce, env);
-    const allowedOwner = getOwnerEmail(env);
+    const userInfo = await validateGoogleIdToken(tokenResult.id_token, statePayload.nonce, env);
 
-    if (userInfo.email !== allowedOwner) {
+    if (!isEmailAuthorized(userInfo.email, env)) {
       return new Response(
         renderAccessDeniedHtml(
           "Access Denied — Owner Only",
-          `The Google account <strong>${escapeHtml(userInfo.email)}</strong> is not authorized to access the Less of Josh owner dashboard. This private tool is restricted to <strong>${escapeHtml(allowedOwner)}</strong>.`
+          `The Google account <strong>${escapeHtml(userInfo.email)}</strong> is not authorized to access this private tool.`
         ),
         {
           status: 403,
@@ -128,7 +129,7 @@ export async function handleDashboardAuthCallback(request, env, isHttps) {
 
     const sessionCookie = await createAdminSessionCookie(userInfo, env, isHttps);
     const headers = new Headers();
-    headers.set("Location", `${url.origin}/dashboard`);
+    headers.set("Location", `${url.origin}${statePayload.redirect || "/dashboard"}`);
     headers.append("Set-Cookie", sessionCookie);
     headers.append("Set-Cookie", clearState);
     headers.set("Cache-Control", "private, no-store, no-cache, must-revalidate");
