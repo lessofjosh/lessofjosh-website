@@ -46,6 +46,10 @@
           <span class="nav-label">Content Pipeline</span>
           <span class="nav-badge muted" id="nav-badge-content">0</span>
         </button>
+        <button class="nav-item" data-view="calendar" title="Master Editorial Calendar">
+          <span class="nav-label">Master Calendar</span>
+          <span class="nav-badge muted" id="nav-badge-calendar">0</span>
+        </button>
         <button class="nav-item" data-view="growth" title="Shortcut: 7">
           <span class="nav-label">Audience Growth</span>
           <span class="nav-badge muted" id="nav-badge-growth">0</span>
@@ -64,12 +68,23 @@
           <span class="nav-label">Tasks / Execution</span>
           <span class="nav-badge muted" id="nav-badge-tasks">0</span>
         </button>
+        <button class="nav-item" data-view="notes" title="Notes &amp; Documents">
+          <span class="nav-label">Notes &amp; Docs</span>
+          <span class="nav-badge muted" id="nav-badge-notes">0</span>
+        </button>
+        <button class="nav-item" data-view="files" title="Files &amp; Attachments">
+          <span class="nav-label">Files &amp; Attachments</span>
+          <span class="nav-badge muted" id="nav-badge-files">0</span>
+        </button>
         <button class="nav-item" data-view="reference">
           <span class="nav-label">Reference Library</span>
           <span class="nav-badge muted" id="nav-badge-reference">0</span>
         </button>
         <button class="nav-item" data-view="health">
           <span class="nav-label">Health Log</span>
+        </button>
+        <button class="nav-item" data-view="users" id="nav-btn-users" title="Team Access &amp; Roles">
+          <span class="nav-label">Team &amp; Access</span>
         </button>
         <button class="nav-item" data-view="backups">
           <span class="nav-label">Import &amp; Backups</span>
@@ -79,9 +94,10 @@
       <div class="sidebar-quick-actions">
         <div class="sidebar-section-label">QUICK ENTRY (N)</div>
         <button class="btn btn-primary btn-block" id="btn-quick-sponsorship">+ New Sponsorship</button>
-        <button class="btn btn-secondary btn-block" id="btn-quick-media">+ New Media Pitch</button>
         <button class="btn btn-secondary btn-block" id="btn-quick-content">+ New Content Idea</button>
+        <button class="btn btn-secondary btn-block" id="btn-quick-note">+ New Note / Doc</button>
         <button class="btn btn-secondary btn-block" id="btn-quick-task">+ New Task</button>
+        <button class="btn btn-secondary btn-block" id="btn-quick-media">+ New Media Pitch</button>
         <button class="btn btn-secondary btn-block" id="btn-quick-revenue">+ Log Revenue</button>
       </div>
 
@@ -99,22 +115,36 @@
       </div>
     </aside>
 
+    <div class="sidebar-backdrop hidden" id="sidebar-backdrop"></div>
+
     <!-- MAIN CONTENT AREA -->
     <div class="main-wrapper">
+      <!-- MOBILE HEADER -->
+      <header class="mobile-header">
+        <button class="mobile-menu-btn" id="btn-mobile-menu" aria-label="Toggle Navigation">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+        <div class="mobile-title" id="mobile-page-title">Command Center</div>
+        <button class="mobile-search-btn" id="btn-mobile-search" aria-label="Open Universal Search">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        </button>
+      </header>
+
       <!-- TOP COMMAND BAR -->
       <header class="topbar">
         <div class="topbar-left">
+          <button class="btn btn-ghost btn-sm mobile-only-inline" id="btn-desktop-menu-toggle" aria-label="Toggle Menu">☰</button>
           <h1 class="view-title" id="current-view-title">What Should Josh Work On Next?</h1>
           <span class="today-pill" id="topbar-today-date"></span>
         </div>
 
         <div class="topbar-search-wrapper">
-          <div class="global-search-box">
+          <div class="global-search-box" id="global-search-box-trigger">
             <span class="search-icon">⌕</span>
             <input
               type="search"
               id="global-search-input"
-              placeholder="Search brands, media, content, affiliates, goals, tasks, playbooks... ( / or ⌘K )"
+              placeholder="Search across all modules... ( / or ⌘K )"
               autocomplete="off"
             />
             <kbd class="search-kbd">/</kbd>
@@ -123,6 +153,7 @@
         </div>
 
         <div class="topbar-actions">
+          <button class="btn btn-ghost btn-sm" id="btn-topbar-search-modal" title="Universal Search (⌘K)">🔍 Search (⌘K)</button>
           <button class="btn btn-ghost btn-sm" id="btn-topbar-import-csv" title="Import Sponsorships CSV">Import CSV</button>
           <button class="btn btn-ghost btn-sm" id="btn-topbar-snapshot" title="Save Local Backup Snapshot">Save Backup</button>
         </div>
@@ -298,13 +329,17 @@
               <option value="effective_value:desc">Sort: Deal Value (High → Low)</option>
               <option value="brand:asc">Sort: Brand (A → Z)</option>
             </select>
+            <div class="view-toggle-group">
+              <button class="btn btn-secondary btn-sm active" id="btn-sponsorship-view-table">Table</button>
+              <button class="btn btn-secondary btn-sm" id="btn-sponsorship-view-board">Pipeline Board</button>
+            </div>
             <button class="btn btn-secondary btn-sm" id="btn-sponsorship-import-csv">Import CSV</button>
             <a class="btn btn-ghost btn-sm" href="/api/commandcenter/export/csv/sponsorships" download>Export CSV</a>
             <button class="btn btn-primary btn-sm" id="btn-new-sponsorship">+ New Sponsorship</button>
           </div>
         </div>
 
-        <div class="table-container">
+        <div class="table-container" id="sponsorships-table-container">
           <table class="data-table">
             <thead>
               <tr>
@@ -322,6 +357,8 @@
             <tbody id="sponsorships-tbody"></tbody>
           </table>
         </div>
+
+        <div class="board-view hidden" id="sponsorships-board-wrapper"></div>
       </main>
 
       <!-- =================================================================== -->
@@ -563,6 +600,36 @@
       </main>
 
       <!-- =================================================================== -->
+      <!-- VIEW: MASTER EDITORIAL & BUSINESS CALENDAR                          -->
+      <!-- =================================================================== -->
+      <main id="view-calendar" class="view-section hidden">
+        <div class="toolbar">
+          <div class="calendar-nav-controls">
+            <button class="btn btn-secondary btn-sm" id="btn-cal-prev">&lt; Prev</button>
+            <button class="btn btn-secondary btn-sm" id="btn-cal-today">Today</button>
+            <button class="btn btn-secondary btn-sm" id="btn-cal-next">Next &gt;</button>
+            <h2 class="calendar-month-heading" id="cal-month-title">October 2026</h2>
+          </div>
+          <div class="toolbar-controls">
+            <div class="calendar-filters">
+              <span class="filter-pill active" data-cal-filter="all">All Events</span>
+              <span class="filter-pill cal-filter-content active" data-cal-filter="content">Content</span>
+              <span class="filter-pill cal-filter-sponsor active" data-cal-filter="sponsorships">Deliverables</span>
+              <span class="filter-pill cal-filter-task active" data-cal-filter="tasks">Tasks</span>
+              <span class="filter-pill cal-filter-goal active" data-cal-filter="goals">Goals</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="calendar-container">
+          <div class="calendar-days-header">
+            <div>SUN</div><div>MON</div><div>TUE</div><div>WED</div><div>THU</div><div>FRI</div><div>SAT</div>
+          </div>
+          <div class="calendar-grid" id="calendar-grid"></div>
+        </div>
+      </main>
+
+      <!-- =================================================================== -->
       <!-- VIEW 7: AUDIENCE / GROWTH TRACKER                                   -->
       <!-- =================================================================== -->
       <main id="view-growth" class="view-section hidden">
@@ -650,9 +717,16 @@
               <h2 class="panel-title">Business &amp; Product Initiatives</h2>
               <p class="panel-subtitle">Less of Us App, Cookbook Creation, Rooted with Rita, Almost Hidden WV &amp; 35/63 Media</p>
             </div>
-            <button class="btn btn-primary btn-sm" id="btn-new-project">+ New Project</button>
+            <div class="header-actions-row">
+              <div class="view-toggle-group">
+                <button class="btn btn-secondary btn-sm active" id="btn-projects-view-table">Table</button>
+                <button class="btn btn-secondary btn-sm" id="btn-projects-view-board">Board</button>
+                <button class="btn btn-secondary btn-sm" id="btn-projects-view-timeline">Timeline</button>
+              </div>
+              <button class="btn btn-primary btn-sm" id="btn-new-project">+ New Project</button>
+            </div>
           </div>
-          <div class="table-container flush">
+          <div class="table-container flush" id="projects-table-container">
             <table class="data-table">
               <thead>
                 <tr>
@@ -669,6 +743,8 @@
               <tbody id="projects-tbody"></tbody>
             </table>
           </div>
+          <div class="board-view hidden p-12" id="projects-board-wrapper"></div>
+          <div class="timeline-view hidden p-12" id="projects-timeline-wrapper"></div>
         </section>
 
         <!-- Cookbook Recipes & 3D Printing Split Grid -->
@@ -738,13 +814,17 @@
           </div>
 
           <div class="toolbar-controls">
+            <div class="view-toggle-group">
+              <button class="btn btn-secondary btn-sm active" id="btn-tasks-view-table">Table</button>
+              <button class="btn btn-secondary btn-sm" id="btn-tasks-view-board">Board</button>
+            </div>
             <input type="search" id="tasks-search" class="input-sm" placeholder="Filter tasks, categories, notes..." />
             <a class="btn btn-ghost btn-sm" href="/api/commandcenter/export/csv/tasks" download>Export CSV</a>
             <button class="btn btn-primary btn-sm" id="btn-new-task">+ New Task</button>
           </div>
         </div>
 
-        <div class="table-container">
+        <div class="table-container" id="tasks-table-container">
           <table class="data-table">
             <thead>
               <tr>
@@ -759,6 +839,74 @@
               </tr>
             </thead>
             <tbody id="tasks-tbody"></tbody>
+          </table>
+        </div>
+        <div class="board-view hidden" id="tasks-board-wrapper"></div>
+      </main>
+
+      <!-- =================================================================== -->
+      <!-- VIEW: NOTES & BUSINESS DOCUMENTS                                    -->
+      <!-- =================================================================== -->
+      <main id="view-notes" class="view-section hidden">
+        <div class="toolbar">
+          <div class="filter-pills" id="notes-category-tabs">
+            <button class="pill active" data-ncat="all">All Notes</button>
+            <button class="pill" data-ncat="pinned">📌 Pinned</button>
+            <button class="pill" data-ncat="Strategy">Strategy</button>
+            <button class="pill" data-ncat="Sponsorships">Sponsorships</button>
+            <button class="pill" data-ncat="Content Ideas">Content Ideas</button>
+            <button class="pill" data-ncat="Operations">Operations</button>
+            <button class="pill" data-ncat="archived">Archived</button>
+          </div>
+
+          <div class="toolbar-controls">
+            <input type="search" id="notes-search" class="input-sm" placeholder="Filter notes, tags, body text..." />
+            <a class="btn btn-ghost btn-sm" href="/api/commandcenter/export/csv/notes" download>Export CSV</a>
+            <button class="btn btn-primary btn-sm" id="btn-new-note">+ New Note / Doc</button>
+          </div>
+        </div>
+
+        <div class="notes-grid" id="notes-grid"></div>
+      </main>
+
+      <!-- =================================================================== -->
+      <!-- VIEW: FILES & ASSET ATTACHMENTS                                     -->
+      <!-- =================================================================== -->
+      <main id="view-files" class="view-section hidden">
+        <div class="toolbar">
+          <div class="filter-pills" id="files-filter-pills">
+            <button class="pill active" data-fqf="all">All Files</button>
+            <button class="pill" data-fqf="sponsorships">Sponsors</button>
+            <button class="pill" data-fqf="content">Content</button>
+            <button class="pill" data-fqf="projects">Projects</button>
+            <button class="pill" data-fqf="tasks">Tasks</button>
+            <button class="pill" data-fqf="notes">Notes</button>
+          </div>
+
+          <div class="toolbar-controls">
+            <input type="search" id="files-search" class="input-sm" placeholder="Filter filename, record, notes..." />
+            <a class="btn btn-ghost btn-sm" href="/api/commandcenter/export/csv/attachments" download>Export CSV</a>
+            <label class="btn btn-primary btn-sm upload-btn-label">
+              + Upload File
+              <input type="file" id="btn-upload-file-global" class="hidden-file-input">
+            </label>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>File / Document</th>
+                <th>Belongs To Record</th>
+                <th>MIME Type</th>
+                <th class="num">Size</th>
+                <th>Uploaded By</th>
+                <th>Uploaded At</th>
+                <th class="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="files-tbody"></tbody>
           </table>
         </div>
       </main>
@@ -828,6 +976,35 @@
       </main>
 
       <!-- =================================================================== -->
+      <!-- VIEW: TEAM ACCESS & PERMISSIONS                                     -->
+      <!-- =================================================================== -->
+      <main id="view-users" class="view-section hidden">
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <h2 class="panel-title">Team Access &amp; Permissions</h2>
+              <p class="panel-subtitle">Access control and allowed operational areas for Josh and Rita</p>
+            </div>
+          </div>
+          <div class="table-container flush">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Authorized Google Email</th>
+                  <th>System Role</th>
+                  <th>Allowed Modules</th>
+                  <th>Permissions</th>
+                  <th class="text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="users-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+
+      <!-- =================================================================== -->
       <!-- VIEW 13: IMPORT, EXPORT & BACKUPS                                   -->
       <!-- =================================================================== -->
       <main id="view-backups" class="view-section hidden">
@@ -852,13 +1029,14 @@
             <div class="panel-header">
               <div>
                 <h2 class="panel-title">Full JSON Backup &amp; Restore</h2>
-                <p class="panel-subtitle">Complete local database snapshots and 1-click restore</p>
+                <p class="panel-subtitle">Complete database snapshots, file manifests, and 1-click restore</p>
               </div>
             </div>
             <div class="panel-body stack-12">
               <div class="button-row">
                 <a class="btn btn-primary" href="/api/commandcenter/backup/json" download>Download Full JSON Backup</a>
-                <button class="btn btn-secondary" id="btn-create-disk-snapshot">Save Snapshot to Disk</button>
+                <button class="btn btn-secondary" id="btn-create-disk-snapshot">Save Snapshot</button>
+                <button class="btn btn-ghost" id="btn-view-restore-guide">📖 Restore Documentation</button>
               </div>
 
               <hr class="divider" />
@@ -874,14 +1052,14 @@
                   <button class="btn btn-warning btn-sm" id="btn-restore-json-file">Restore File</button>
                 </div>
                 <p class="text-muted text-xs mt-4">
-                  An automatic safety backup is saved to disk before any restore is applied.
+                  An automatic safety backup is saved to KV before any restore is applied.
                 </p>
               </div>
 
               <hr class="divider" />
 
               <div>
-                <div class="form-label">Saved Disk Snapshots (<code>data/backups/</code>)</div>
+                <div class="form-label">Saved Cloudflare KV Snapshots</div>
                 <div id="snapshots-list" class="stack-8 mt-8"></div>
               </div>
             </div>
@@ -890,20 +1068,27 @@
           <section class="panel span-full">
             <div class="panel-header">
               <div>
-                <h2 class="panel-title">CSV Exports</h2>
+                <h2 class="panel-title">Complete CSV Spreadsheet Exports</h2>
                 <p class="panel-subtitle">Download clean spreadsheet exports of any operational module</p>
               </div>
             </div>
             <div class="panel-body">
-              <div class="button-row">
+              <div class="button-row flex-wrap">
                 <a class="btn btn-secondary btn-sm" href="/api/commandcenter/export/csv/sponsorships" download>Sponsorships (.csv)</a>
-                <a class="btn btn-secondary btn-sm" href="/api/commandcenter/export/csv/media" download>Media Outreach (.csv)</a>
-                <a class="btn btn-secondary btn-sm" href="/api/commandcenter/export/csv/affiliates" download>Affiliates (.csv)</a>
                 <a class="btn btn-secondary btn-sm" href="/api/commandcenter/export/csv/content" download>Content Pipeline (.csv)</a>
-                <a class="btn btn-secondary btn-sm" href="/api/commandcenter/export/csv/growth" download>Audience Growth (.csv)</a>
-                <a class="btn btn-secondary btn-sm" href="/api/commandcenter/export/csv/goals" download>90-Day Goals (.csv)</a>
-                <a class="btn btn-secondary btn-sm" href="/api/commandcenter/export/csv/tasks" download>Tasks / Execution (.csv)</a>
-                <a class="btn btn-secondary btn-sm" href="/api/commandcenter/export/csv/revenue" download>Revenue Ledger (.csv)</a>
+                <a class="btn btn-secondary btn-sm" href="/api/commandcenter/export/csv/tasks" download>Tasks (.csv)</a>
+                <a class="btn btn-secondary btn-sm" href="/api/commandcenter/export/csv/notes" download>Notes &amp; Docs (.csv)</a>
+                <a class="btn btn-secondary btn-sm" href="/api/commandcenter/export/csv/projects" download>Projects (.csv)</a>
+                <a class="btn btn-secondary btn-sm" href="/api/commandcenter/export/csv/revenue" download>Revenue (.csv)</a>
+                <a class="btn btn-secondary btn-sm" href="/api/commandcenter/export/csv/affiliates" download>Affiliates (.csv)</a>
+                <a class="btn btn-secondary btn-sm" href="/api/commandcenter/export/csv/media" download>Media Outreach (.csv)</a>
+                <a class="btn btn-secondary btn-sm" href="/api/commandcenter/export/csv/cookbook" download>Cookbook (.csv)</a>
+                <a class="btn btn-secondary btn-sm" href="/api/commandcenter/export/csv/printing" download>3D Printing (.csv)</a>
+                <a class="btn btn-secondary btn-sm" href="/api/commandcenter/export/csv/reference" download>Reference (.csv)</a>
+                <a class="btn btn-secondary btn-sm" href="/api/commandcenter/export/csv/attachments" download>Files Manifest (.csv)</a>
+                <a class="btn btn-secondary btn-sm" href="/api/commandcenter/export/csv/growth" download>Growth (.csv)</a>
+                <a class="btn btn-secondary btn-sm" href="/api/commandcenter/export/csv/goals" download>Goals (.csv)</a>
+                <a class="btn btn-secondary btn-sm" href="/api/commandcenter/export/csv/health" download>Health Log (.csv)</a>
               </div>
             </div>
           </section>
@@ -1016,6 +1201,10 @@
             <label class="form-label">Notes</label>
             <textarea id="sp-notes" rows="2" placeholder="Usage rights, exclusivity, payment terms, etc."></textarea>
           </div>
+        <div class="modal-subsections">
+          <div id="sp-custom-fields-container"></div>
+          <div id="sp-relationships-container"></div>
+          <div id="sp-attachments-container"></div>
         </div>
 
         <div class="modal-footer">
@@ -1301,6 +1490,10 @@
             <label class="form-label">Notes / Script / Talking Points</label>
             <textarea id="ct-notes" rows="2" placeholder="Key talking points, CTA, B-roll notes..."></textarea>
           </div>
+        <div class="modal-subsections">
+          <div id="ct-custom-fields-container"></div>
+          <div id="ct-relationships-container"></div>
+          <div id="ct-attachments-container"></div>
         </div>
 
         <div class="modal-footer">
@@ -1589,6 +1782,12 @@
           <textarea id="tk-notes" rows="2" placeholder="Task notes..."></textarea>
         </div>
 
+        <div class="modal-subsections">
+          <div id="tk-custom-fields-container"></div>
+          <div id="tk-relationships-container"></div>
+          <div id="tk-attachments-container"></div>
+        </div>
+
         <div class="modal-footer">
           <button type="button" class="btn btn-danger hidden" id="btn-delete-task">Delete</button>
           <div class="spacer"></div>
@@ -1643,6 +1842,12 @@
         <div class="form-group mt-12">
           <label class="form-label">Description &amp; Notes</label>
           <textarea id="pj-notes" rows="3" placeholder="Project details, notes, roadmap..."></textarea>
+        </div>
+
+        <div class="modal-subsections">
+          <div id="pj-custom-fields-container"></div>
+          <div id="pj-relationships-container"></div>
+          <div id="pj-attachments-container"></div>
         </div>
 
         <div class="modal-footer">
@@ -1926,6 +2131,281 @@
           <button type="button" class="btn btn-ghost" data-close="modal-csv-import">Cancel</button>
           <button type="button" class="btn btn-primary" id="btn-confirm-csv-import">Import Sponsorships</button>
         </div>
+      </div>
+    </div>
+  <!-- ========================================================================= -->
+  <!-- MODAL: NOTE / DOCUMENT EDITOR                                             -->
+  <!-- ========================================================================= -->
+  <div class="modal-backdrop hidden" id="modal-note">
+    <div class="modal modal-lg note-modal">
+      <div class="modal-header">
+        <div class="note-modal-title-row">
+          <h3 class="modal-title" id="note-modal-title">New Note / Document</h3>
+          <div class="note-header-actions">
+            <button type="button" class="btn btn-ghost btn-sm" id="btn-note-pin-toggle" title="Toggle Pinned">📌 Pin</button>
+            <button type="button" class="btn btn-ghost btn-sm text-muted" id="btn-note-archive-toggle" title="Toggle Archive">Archive</button>
+          </div>
+        </div>
+        <button class="modal-close" data-close="modal-note">&times;</button>
+      </div>
+      <form id="form-note" class="modal-body stack-12">
+        <input type="hidden" id="note-id" />
+        <div class="form-row">
+          <input type="text" id="note-title" class="note-title-input" placeholder="Document Title..." required />
+        </div>
+        <div class="form-grid-3">
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            <input type="text" id="note-category" list="note-category-datalist" placeholder="General, Strategy, Call Notes..." />
+            <datalist id="note-category-datalist">
+              <option value="General"></option>
+              <option value="Strategy"></option>
+              <option value="Sponsorships"></option>
+              <option value="Content Ideas"></option>
+              <option value="Production Notes"></option>
+              <option value="Playbook"></option>
+              <option value="Operations"></option>
+              <option value="Contract"></option>
+            </datalist>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tags (comma-separated)</label>
+            <input type="text" id="note-tags" placeholder="e.g. goli, sponsor, 2026" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Associated Record</label>
+            <div class="button-row">
+              <select id="note-assoc-type" class="select-sm">
+                <option value="">None (Independent)</option>
+                <option value="sponsorships">Sponsorship</option>
+                <option value="content">Content</option>
+                <option value="projects">Project</option>
+                <option value="tasks">Task</option>
+                <option value="media">Media</option>
+                <option value="affiliates">Affiliate</option>
+              </select>
+              <input type="number" id="note-assoc-id" class="input-sm" placeholder="ID" style="max-width: 75px;" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Markdown Editor Toolbar -->
+        <div class="markdown-editor-container">
+          <div class="editor-toolbar">
+            <div class="toolbar-btn-group">
+              <button type="button" class="md-btn" data-md="bold" title="Bold"><strong>B</strong></button>
+              <button type="button" class="md-btn" data-md="italic" title="Italic"><em>I</em></button>
+              <button type="button" class="md-btn" data-md="h1" title="Heading 1">H1</button>
+              <button type="button" class="md-btn" data-md="h2" title="Heading 2">H2</button>
+              <button type="button" class="md-btn" data-md="h3" title="Heading 3">H3</button>
+            </div>
+            <div class="toolbar-btn-group">
+              <button type="button" class="md-btn" data-md="bullet" title="Bullet List">• List</button>
+              <button type="button" class="md-btn" data-md="task" title="Checklist">☑ Task</button>
+              <button type="button" class="md-btn" data-md="code" title="Code Block">&lt;&gt;</button>
+              <button type="button" class="md-btn" data-md="link" title="Link">🔗 Link</button>
+              <button type="button" class="md-btn" data-md="quote" title="Quote">” Quote</button>
+              <button type="button" class="md-btn" data-md="table" title="Table">⊞ Table</button>
+            </div>
+            <div class="toolbar-btn-group">
+              <button type="button" class="editor-tab active" data-tab="edit">Edit</button>
+              <button type="button" class="editor-tab" data-tab="split">Split</button>
+              <button type="button" class="editor-tab" data-tab="preview">Preview</button>
+            </div>
+          </div>
+          <div class="editor-split-body" id="note-editor-split">
+            <textarea id="note-body" class="note-textarea" placeholder="Write formatted document, notes, playbooks or checklists in Markdown..."></textarea>
+            <div id="note-preview-pane" class="note-preview-pane markdown-rendered"></div>
+          </div>
+        </div>
+
+        <div class="modal-subsections">
+          <div id="note-relationships-container"></div>
+          <div id="note-attachments-container"></div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-danger hidden" id="btn-delete-note">Delete</button>
+          <div class="spacer"></div>
+          <button type="button" class="btn btn-ghost" data-close="modal-note">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="btn-save-note">Save Document</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: LINK RECORD RELATIONSHIP                                           -->
+  <!-- ========================================================================= -->
+  <div class="modal-backdrop hidden" id="modal-link-record">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Connect Related Record</h3>
+        <button class="modal-close" data-close="modal-link-record">&times;</button>
+      </div>
+      <form id="form-link-record" class="modal-body stack-12">
+        <input type="hidden" id="link-source-type" />
+        <input type="hidden" id="link-source-id" />
+        <div class="form-group">
+          <label class="form-label">Related Record Type</label>
+          <select id="link-target-type" required>
+            <option value="sponsorships">Sponsorship Deal</option>
+            <option value="content">Content Item</option>
+            <option value="tasks">Task</option>
+            <option value="notes">Note / Document</option>
+            <option value="projects">Business Project</option>
+            <option value="media">Media Outreach</option>
+            <option value="affiliates">Affiliate</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Choose Record</label>
+          <select id="link-target-record" required>
+            <option value="">Select a record...</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Relationship Description</label>
+          <input type="text" id="link-label" placeholder="e.g. deliverable, campaign, contract, task" value="relates_to" />
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" data-close="modal-link-record">Cancel</button>
+          <button type="submit" class="btn btn-primary">Connect</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: CUSTOM PROPERTY DEFINITION                                         -->
+  <!-- ========================================================================= -->
+  <div class="modal-backdrop hidden" id="modal-custom-field">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Add Custom Property</h3>
+        <button class="modal-close" data-close="modal-custom-field">&times;</button>
+      </div>
+      <form id="form-custom-field" class="modal-body stack-12">
+        <input type="hidden" id="cf-entity-type" />
+        <div class="form-group">
+          <label class="form-label">Property Name</label>
+          <input type="text" id="cf-label" placeholder="e.g. Contract Expiration, Video Promo Code, Target ROI" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Type</label>
+          <select id="cf-type" required>
+            <option value="text">Text</option>
+            <option value="number">Number</option>
+            <option value="currency">Currency ($)</option>
+            <option value="date">Date</option>
+            <option value="url">URL Link</option>
+            <option value="checkbox">Checkbox</option>
+            <option value="select">Single Select</option>
+            <option value="multi_select">Multi-Select / Tags</option>
+            <option value="status">Status</option>
+          </select>
+        </div>
+        <div class="form-group hidden" id="cf-options-group">
+          <label class="form-label">Options (comma-separated)</label>
+          <input type="text" id="cf-options" placeholder="Option 1, Option 2, Option 3" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Default Value</label>
+          <input type="text" id="cf-default" placeholder="Optional default value" />
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" data-close="modal-custom-field">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add Property</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: RESTORE DOCUMENTATION                                              -->
+  <!-- ========================================================================= -->
+  <div class="modal-backdrop hidden" id="modal-restore-guide">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <h3 class="modal-title">Database &amp; Data Restore Documentation</h3>
+        <button class="modal-close" data-close="modal-restore-guide">&times;</button>
+      </div>
+      <div class="modal-body markdown-rendered" id="restore-guide-body">
+        <p>Loading documentation...</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" data-close="modal-restore-guide">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: USER PERMISSIONS                                                   -->
+  <!-- ========================================================================= -->
+  <div class="modal-backdrop hidden" id="modal-user-permission">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Edit User Access &amp; Role</h3>
+        <button class="modal-close" data-close="modal-user-permission">&times;</button>
+      </div>
+      <form id="form-user-permission" class="modal-body stack-12">
+        <input type="hidden" id="user-perm-id" />
+        <div class="form-group">
+          <label class="form-label">Name</label>
+          <input type="text" id="user-perm-name" readonly />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Google Account Email</label>
+          <input type="text" id="user-perm-email" readonly />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Access Role</label>
+          <select id="user-perm-role">
+            <option value="owner">Owner (Full Access + User Admin)</option>
+            <option value="admin">Admin (Full Operational Access)</option>
+            <option value="authorized_user">Authorized User (Selected Modules Only)</option>
+          </select>
+        </div>
+        <div class="form-group" id="user-perm-modules-group">
+          <label class="form-label">Allowed Modules</label>
+          <div class="checkbox-strip flex-wrap" id="user-modules-checkboxes">
+            <!-- Dynamic checkboxes -->
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" data-close="modal-user-permission">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Access</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: UNIVERSAL COMMAND CENTER SEARCH                                    -->
+  <!-- ========================================================================= -->
+  <div class="modal-backdrop search-modal-backdrop hidden" id="modal-global-search">
+    <div class="search-modal-box">
+      <div class="search-modal-header">
+        <span class="search-icon">🔍</span>
+        <input type="search" id="modal-search-input" placeholder="Search across all modules... (Press Esc to close)" autocomplete="off" />
+        <kbd class="modal-search-esc" data-close="modal-global-search">Esc</kbd>
+      </div>
+      <div class="search-modal-tabs" id="modal-search-tabs">
+        <button class="search-tab active" data-sfilter="all">All (<span id="search-total-count">0</span>)</button>
+        <button class="search-tab" data-sfilter="sponsorships">Sponsors</button>
+        <button class="search-tab" data-sfilter="content">Content</button>
+        <button class="search-tab" data-sfilter="tasks">Tasks</button>
+        <button class="search-tab" data-sfilter="notes">Notes</button>
+        <button class="search-tab" data-sfilter="projects">Projects</button>
+        <button class="search-tab" data-sfilter="files">Files</button>
+        <button class="search-tab" data-sfilter="affiliates">Affiliates</button>
+        <button class="search-tab" data-sfilter="media">Media</button>
+        <button class="search-tab" data-sfilter="cookbook">Recipes</button>
+        <button class="search-tab" data-sfilter="revenue">Revenue</button>
+        <button class="search-tab" data-sfilter="goals">Goals</button>
+      </div>
+      <div class="search-modal-results" id="modal-search-results">
+        <div class="empty-state">Start typing to search across all records...</div>
       </div>
     </div>
   </div>

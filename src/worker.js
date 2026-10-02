@@ -16,7 +16,7 @@ import {
   handleDashboardApiRefresh,
   handleDashboardApiSettings
 } from "./routes/dashboard.js";
-import { handleCommandCenterPage, handleCommandCenterApi } from "./routes/commandcenter.js";
+import { handleCommandCenterPage, handleCommandCenterApi, autoBackupCommandCenter } from "./routes/commandcenter.js";
 import { handleSitemapIndex, handlePagesSitemap } from "./routes/seo.js";
 import { handleNotFound } from "./routes/not-found.js";
 
@@ -238,6 +238,9 @@ export default {
   },
 
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(refreshAllMetrics(env));
+    ctx.waitUntil(Promise.allSettled([
+      refreshAllMetrics(env),
+      autoBackupCommandCenter(env)
+    ]));
   }
 };

@@ -46,7 +46,24 @@ const state = {
   contentViewMode: 'table', // 'table' | 'board'
   goalCycleFilter: 'Cycle 2',
   taskQuickFilter: 'all',
-  referenceCategoryFilter: 'all'
+  referenceCategoryFilter: 'all',
+
+  // Notion Replacement Module State
+  notes: [],
+  activeNoteId: null,
+  noteCategoryFilter: 'all',
+  files: [],
+  filesFilter: 'all',
+  users: [],
+  customFieldDefs: [],
+  calendarYear: new Date().getFullYear(),
+  calendarMonth: new Date().getMonth(),
+  calendarFilter: 'all',
+  sponsorshipViewMode: 'table',
+  taskViewMode: 'table',
+  projectViewMode: 'table',
+  searchQuery: '',
+  searchFilter: 'all'
 };
 
 // ============================================================================
@@ -61,6 +78,81 @@ function escapeHtml(val) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+function renderMarkdown(str) {
+  if (!str) return '';
+  let html = escapeHtml(str);
+
+  // Fenced code blocks
+  html = html.replace(/```([a-z0-9_-]*)\n([\s\S]*?)```/g, (match, lang, code) => {
+    return `<pre><code class="language-${lang}">${code.trim()}</code></pre>`;
+  });
+
+  // Inline code
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+  // Headings
+  html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+  html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
+  html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+
+  // Blockquotes
+  html = html.replace(/^&gt;\s?(.*$)/gim, '<blockquote>$1</blockquote>');
+
+  // Task list / Checklist items
+  html = html.replace(/^-\s*\[x\]\s*(.*$)/gim, '<li class="task-list-item"><input type="checkbox" checked disabled> $1</li>');
+  html = html.replace(/^-\s*\[ \]\s*(.*$)/gim, '<li class="task-list-item"><input type="checkbox" disabled> $1</li>');
+
+  // Unordered list items
+  html = html.replace(/^[-*]\s+(.*$)/gim, '<li>$1</li>');
+
+  // Wrap consecutive <li> into <ul>
+  html = html.replace(/(<li[\s\S]*?<\/li>(\s*<li[\s\S]*?<\/li>)*)/g, '<ul>$1</ul>');
+
+  // Bold & Italic
+  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  html = html.replace(/~~([^~]+)~~/g, '<del>$1</del>');
+
+  // Images: ![alt](url)
+  html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" class="md-image" loading="lazy" />');
+
+  // Links: [text](url)
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+
+  // Simple Markdown Tables
+  html = html.replace(/((?:\|[^\n]+\|\r?\n)+)/g, (match) => {
+    const lines = match.trim().split(/\r?\n/).filter(Boolean);
+    if (lines.length < 2) return match;
+    const isDivider = (line) => /^\|(\s*:?-+:?\s*\|)+$/.test(line.trim());
+    let dividerIndex = lines.findIndex(isDivider);
+    let tableHtml = '<table class="data-table md-table">';
+    if (dividerIndex > 0) {
+      const headerCells = lines[0].split('|').slice(1, -1).map(c => `<th>${c.trim()}</th>`).join('');
+      tableHtml += `<thead><tr>${headerCells}</tr></thead><tbody>`;
+      for (let i = dividerIndex + 1; i < lines.length; i++) {
+        const rowCells = lines[i].split('|').slice(1, -1).map(c => `<td>${c.trim()}</td>`).join('');
+        tableHtml += `<tr>${rowCells}</tr>`;
+      }
+      tableHtml += '</tbody></table>';
+      return tableHtml;
+    }
+    return match;
+  });
+
+  // Paragraphs
+  const blocks = html.split(/\n{2,}/);
+  html = blocks.map(block => {
+    block = block.trim();
+    if (!block) return '';
+    if (/^<(h[1-6]|ul|ol|pre|table|blockquote)/i.test(block)) {
+      return block;
+    }
+    return `<p>${block.replace(/\n/g, '<br/>')}</p>`;
+  }).join('\n');
+
+  return html;
 }
 
 function formatMoney(val, showDashIfNull = false) {
@@ -187,6 +279,10 @@ const VIEW_TITLES = {
   goals: '90-Day Goals (Cycle 2 & Cycle 1)',
   projects: 'Projects, Cookbook & 3D Printing',
   tasks: 'Weekly Execution & Tasks',
+  calendar: 'Master Content & Business Calendar',
+  notes: 'Notes, Documents & Playbooks',
+  files: 'Secure Files & Attachments',
+  users: 'Team Access & Permissions',
   reference: 'Local Reference Library (Playbooks, Rate Card & Rules)',
   health: 'Health & Transformation Log',
   backups: 'Notion Sync, CSV Exports & Backups'
@@ -260,7 +356,23 @@ function switchView(viewName) {
     sec.classList.toggle('active', sec.id === `view-${viewName}`);
   });
 
-  if (viewName === 'backups') {
+  // Close mobile drawer on navigation
+  const sidebar = document.getElementById('sidebar');
+  const backdrop = document.getElementById('sidebar-backdrop');
+  if (sidebar && sidebar.classList.contains('open')) {
+    sidebar.classList.remove('open');
+    if (backdrop) backdrop.classList.add('hidden');
+  }
+
+  if (viewName === 'calendar') {
+    renderCalendar();
+  } else if (viewName === 'notes') {
+    loadNotes();
+  } else if (viewName === 'files') {
+    loadFiles();
+  } else if (viewName === 'users') {
+    loadUsers();
+  } else if (viewName === 'backups') {
     loadBackupSnapshots();
     loadImportLogs();
   }
@@ -279,13 +391,20 @@ async function refreshAllData() {
     loadTasks(),
     loadProjectsAndCookbook(),
     loadReference(),
-    loadHealth()
+    loadHealth(),
+    loadNotes().catch(() => []),
+    loadFiles().catch(() => []),
+    loadCustomFieldDefs().catch(() => []),
+    loadUsers().catch(() => [])
   ]);
 
   state.dashboard = dashboard;
   renderDashboard(dashboard);
   updateNavBadges(dashboard);
   updateSuggestionsDatalists();
+  if (state.activeView === 'calendar') {
+    renderCalendar();
+  }
 }
 
 function updateNavBadges(dashboard) {
@@ -301,17 +420,35 @@ function updateNavBadges(dashboard) {
     (ws.content_to_edit_count || 0) +
     (ws.content_to_publish_count || 0);
 
-  document.getElementById('nav-badge-priority').textContent = priorityActions;
-  document.getElementById('nav-badge-sponsorships').textContent = counts.sponsorships || 0;
-  document.getElementById('nav-badge-media').textContent = counts.media_outreach || 0;
-  document.getElementById('nav-badge-affiliates').textContent = counts.affiliates || 0;
-  document.getElementById('nav-badge-content').textContent = counts.content_items || 0;
-  document.getElementById('nav-badge-growth').textContent = counts.growth_snapshots || 0;
-  document.getElementById('nav-badge-goals').textContent = counts.goals || 0;
-  document.getElementById('nav-badge-projects').textContent =
-    (counts.business_projects || 0) + (counts.cookbook_recipes || 0) + (counts.printing_projects || 0);
-  document.getElementById('nav-badge-tasks').textContent = counts.tasks || 0;
-  document.getElementById('nav-badge-reference').textContent = counts.reference_documents || 0;
+  const elPriority = document.getElementById('nav-badge-priority');
+  if (elPriority) elPriority.textContent = priorityActions;
+  const elSponsorships = document.getElementById('nav-badge-sponsorships');
+  if (elSponsorships) elSponsorships.textContent = counts.sponsorships || 0;
+  const elMedia = document.getElementById('nav-badge-media');
+  if (elMedia) elMedia.textContent = counts.media_outreach || 0;
+  const elAffiliates = document.getElementById('nav-badge-affiliates');
+  if (elAffiliates) elAffiliates.textContent = counts.affiliates || 0;
+  const elContent = document.getElementById('nav-badge-content');
+  if (elContent) elContent.textContent = counts.content_items || 0;
+  const elGrowth = document.getElementById('nav-badge-growth');
+  if (elGrowth) elGrowth.textContent = counts.growth_snapshots || 0;
+  const elGoals = document.getElementById('nav-badge-goals');
+  if (elGoals) elGoals.textContent = counts.goals || 0;
+  const elProjects = document.getElementById('nav-badge-projects');
+  if (elProjects) {
+    elProjects.textContent = (counts.business_projects || 0) + (counts.cookbook_recipes || 0) + (counts.printing_projects || 0);
+  }
+  const elTasks = document.getElementById('nav-badge-tasks');
+  if (elTasks) elTasks.textContent = counts.tasks || 0;
+  const elReference = document.getElementById('nav-badge-reference');
+  if (elReference) elReference.textContent = counts.reference_documents || 0;
+
+  const elNotes = document.getElementById('nav-badge-notes');
+  if (elNotes) elNotes.textContent = counts.notes || state.notes.length || 0;
+  const elFiles = document.getElementById('nav-badge-files');
+  if (elFiles) elFiles.textContent = counts.attachments || state.files.length || 0;
+  const elUsers = document.getElementById('nav-badge-users');
+  if (elUsers) elUsers.textContent = state.users.length || 2;
 }
 
 function updateSuggestionsDatalists() {
@@ -701,7 +838,11 @@ async function loadSponsorships() {
   if (state.sponsorshipQuickFilter === 'unpaid') params.set('unpaid_invoices', 'true');
 
   state.sponsorships = await api(`/api/commandcenter/sponsorships?${params.toString()}`);
-  renderSponsorshipsTable();
+  if (state.sponsorshipViewMode === 'board') {
+    renderSponsorshipsBoard();
+  } else {
+    renderSponsorshipsTable();
+  }
 }
 
 function renderSponsorshipsTable() {
@@ -815,12 +956,22 @@ function openSponsorshipModal(id = null) {
     }
     document.getElementById('modal-sponsorship-title').textContent = 'Edit Sponsorship';
     delBtn.classList.remove('hidden');
+
+    renderCustomFields('sponsorships', id, 'sp-custom-fields-container');
+    renderRecordRelationships('sponsorships', id, 'sp-relationships-container');
+    renderRecordAttachments('sponsorships', id, 'sp-attachments-container');
   } else {
     document.getElementById('sp-id').value = '';
     document.getElementById('sp-status').value = 'Prospect';
     document.getElementById('sp-date-first').value = state.today;
     document.getElementById('modal-sponsorship-title').textContent = 'New Sponsorship Lead';
     delBtn.classList.add('hidden');
+
+    renderCustomFields('sponsorships', null, 'sp-custom-fields-container');
+    const relEl = document.getElementById('sp-relationships-container');
+    if (relEl) relEl.innerHTML = '';
+    const attEl = document.getElementById('sp-attachments-container');
+    if (attEl) attEl.innerHTML = '';
   }
 
   modal.classList.remove('hidden');
@@ -1401,6 +1552,10 @@ function openContentModal(id = null, cloneFromParent = null) {
     document.getElementById('modal-content-title').textContent = 'Edit Content Item';
     delBtn.classList.remove('hidden');
     multiBox.classList.add('hidden');
+
+    renderCustomFields('content', id, 'ct-custom-fields-container');
+    renderRecordRelationships('content', id, 'ct-relationships-container');
+    renderRecordAttachments('content', id, 'ct-attachments-container');
   } else if (cloneFromParent) {
     document.getElementById('ct-id').value = '';
     document.getElementById('ct-parent-id').value = cloneFromParent.parent_idea_id || cloneFromParent.id;
@@ -1420,6 +1575,12 @@ function openContentModal(id = null, cloneFromParent = null) {
     document.getElementById('modal-content-title').textContent = `Add Platform Output for "${cloneFromParent.title}"`;
     delBtn.classList.add('hidden');
     multiBox.classList.add('hidden');
+
+    renderCustomFields('content', null, 'ct-custom-fields-container');
+    const relEl = document.getElementById('ct-relationships-container');
+    if (relEl) relEl.innerHTML = '';
+    const attEl = document.getElementById('ct-attachments-container');
+    if (attEl) attEl.innerHTML = '';
   } else {
     document.getElementById('ct-id').value = '';
     document.getElementById('ct-parent-id').value = '';
@@ -1429,6 +1590,12 @@ function openContentModal(id = null, cloneFromParent = null) {
     document.getElementById('modal-content-title').textContent = 'New Content Idea';
     delBtn.classList.add('hidden');
     multiBox.classList.remove('hidden');
+
+    renderCustomFields('content', null, 'ct-custom-fields-container');
+    const relEl = document.getElementById('ct-relationships-container');
+    if (relEl) relEl.innerHTML = '';
+    const attEl = document.getElementById('ct-attachments-container');
+    if (attEl) attEl.innerHTML = '';
   }
 
   modal.classList.remove('hidden');
@@ -1691,7 +1858,14 @@ async function loadProjectsAndCookbook() {
   state.projects = projects;
   state.cookbookRecipes = recipes;
   state.printingProjects = printing;
-  renderProjectsAndCookbook();
+
+  if (state.projectViewMode === 'board') {
+    renderProjectsBoard();
+  } else if (state.projectViewMode === 'timeline') {
+    renderProjectsTimeline();
+  } else {
+    renderProjectsAndCookbook();
+  }
 }
 
 function renderProjectsAndCookbook() {
@@ -1780,11 +1954,21 @@ function openProjectModal(id = null) {
     }
     document.getElementById('modal-project-title').textContent = 'Edit Business Project';
     delBtn.classList.remove('hidden');
+
+    renderCustomFields('projects', id, 'pj-custom-fields-container');
+    renderRecordRelationships('projects', id, 'pj-relationships-container');
+    renderRecordAttachments('projects', id, 'pj-attachments-container');
   } else {
     document.getElementById('pj-id').value = '';
     document.getElementById('pj-status').value = 'In Development';
     document.getElementById('modal-project-title').textContent = 'New Business Project';
     delBtn.classList.add('hidden');
+
+    renderCustomFields('projects', null, 'pj-custom-fields-container');
+    const relEl = document.getElementById('pj-relationships-container');
+    if (relEl) relEl.innerHTML = '';
+    const attEl = document.getElementById('pj-attachments-container');
+    if (attEl) attEl.innerHTML = '';
   }
   modal.classList.remove('hidden');
   document.getElementById('pj-name').focus();
@@ -1867,7 +2051,11 @@ async function loadTasks() {
   }
 
   state.tasks = await api(`/api/commandcenter/tasks?${params.toString()}`);
-  renderTasksTable();
+  if (state.taskViewMode === 'board') {
+    renderTasksBoard();
+  } else {
+    renderTasksTable();
+  }
 }
 
 function renderTasksTable() {
@@ -1930,12 +2118,22 @@ function openTaskModal(id = null) {
     }
     document.getElementById('modal-task-title').textContent = 'Edit Task';
     delBtn.classList.remove('hidden');
+
+    renderCustomFields('tasks', id, 'tk-custom-fields-container');
+    renderRecordRelationships('tasks', id, 'tk-relationships-container');
+    renderRecordAttachments('tasks', id, 'tk-attachments-container');
   } else {
     document.getElementById('tk-id').value = '';
     document.getElementById('tk-status').value = 'To Do';
     document.getElementById('tk-due-date').value = state.today;
     document.getElementById('modal-task-title').textContent = 'New Execution Task';
     delBtn.classList.add('hidden');
+
+    renderCustomFields('tasks', null, 'tk-custom-fields-container');
+    const relEl = document.getElementById('tk-relationships-container');
+    if (relEl) relEl.innerHTML = '';
+    const attEl = document.getElementById('tk-attachments-container');
+    if (attEl) attEl.innerHTML = '';
   }
   modal.classList.remove('hidden');
   document.getElementById('tk-title').focus();
@@ -1950,6 +2148,1138 @@ function fillTaskModal(item) {
   document.getElementById('tk-completed').checked = ['Done', 'Archived'].includes(item.status);
   document.getElementById('tk-needs-review').checked = Boolean(item.needs_review);
   document.getElementById('tk-notes').value = item.notes || '';
+}
+
+// ============================================================================
+// FLEXIBLE VIEWS: BOARDS & TIMELINES
+// ============================================================================
+
+function renderSponsorshipsBoard() {
+  const board = document.getElementById('sponsorships-board-wrapper');
+  if (!board) return;
+  const stages = ['Prospect', 'Pitched', 'Negotiating', 'Contracted', 'Content Due', 'Posted', 'Invoiced', 'Paid'];
+  board.innerHTML = stages.map((stage, idx) => {
+    const items = state.sponsorships.filter((s) => s.status === stage);
+    const nextStage = stages[idx + 1] || null;
+
+    return `
+      <div class="board-column">
+        <div class="board-col-header">
+          <span>${escapeHtml(stage)}</span>
+          <span class="count-pill neutral">${items.length}</span>
+        </div>
+        <div class="board-col-body">
+          ${items.map((s) => `
+            <div class="board-card">
+              <div class="board-card-title">${escapeHtml(s.brand)}</div>
+              <div class="button-row">
+                ${s.agreed_rate > 0 ? `<span class="badge badge-success">${formatMoney(s.agreed_rate)}</span>` : (s.cash_offered > 0 ? `<span class="badge badge-info">${formatMoney(s.cash_offered)}</span>` : '')}
+                ${s.category ? `<span class="badge badge-muted">${escapeHtml(s.category)}</span>` : ''}
+              </div>
+              ${s.due_date ? `<div class="text-xs text-muted ${s.is_overdue_deliverable ? 'text-danger' : ''}">Due: ${escapeHtml(s.due_date)}</div>` : ''}
+              ${s.contact_name ? `<div class="text-xs text-muted">${escapeHtml(s.contact_name)}</div>` : ''}
+              <div class="board-card-footer">
+                <button class="btn btn-ghost btn-xs" onclick="openSponsorshipModal(${s.id})">Open</button>
+                ${nextStage ? `<button class="btn btn-secondary btn-xs" onclick="quickUpdateSponsorship(${s.id}, { status: '${escapeHtml(nextStage)}' })">→ ${escapeHtml(nextStage)}</button>` : ''}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderTasksBoard() {
+  const board = document.getElementById('tasks-board-wrapper');
+  if (!board) return;
+  const statuses = ['To Do', 'In Progress', 'Done', 'Skipped'];
+  board.innerHTML = statuses.map((status, idx) => {
+    const items = state.tasks.filter((t) => {
+      if (status === 'To Do') return t.status === 'To Do' || t.status === 'Not started';
+      if (status === 'In Progress') return t.status === 'In Progress' || t.status === 'In progress';
+      if (status === 'Done') return t.status === 'Done' || t.status === 'Archived';
+      return t.status === status;
+    });
+    const nextStatus = statuses[idx + 1] || null;
+
+    return `
+      <div class="board-column">
+        <div class="board-col-header">
+          <span>${escapeHtml(status)}</span>
+          <span class="count-pill neutral">${items.length}</span>
+        </div>
+        <div class="board-col-body">
+          ${items.map((t) => `
+            <div class="board-card">
+              <div class="board-card-title">${escapeHtml(t.task_name)}</div>
+              <div class="button-row">
+                <span class="badge badge-info">${escapeHtml(t.category || 'General')}</span>
+                ${t.priority ? `<span class="badge ${t.priority === 'High' ? 'badge-danger' : 'badge-muted'}">${escapeHtml(t.priority)}</span>` : ''}
+              </div>
+              ${t.due_date ? `<div class="text-xs text-muted">Due: ${escapeHtml(t.due_date)}</div>` : ''}
+              <div class="board-card-footer">
+                <button class="btn btn-ghost btn-xs" onclick="openTaskModal(${t.id})">Edit</button>
+                ${nextStatus ? `<button class="btn btn-secondary btn-xs" onclick="quickUpdateTask(${t.id}, { status: '${escapeHtml(nextStatus)}' })">→ ${escapeHtml(nextStatus)}</button>` : ''}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderProjectsBoard() {
+  const board = document.getElementById('projects-board-wrapper');
+  if (!board) return;
+  const stages = ['Idea / Planning', 'In Development', 'Submitted / Review', 'Launched / Active'];
+  board.innerHTML = stages.map((stage) => {
+    const items = state.projects.filter((p) => {
+      const s = (p.status || '').toLowerCase();
+      if (stage === 'Idea / Planning') return s.includes('idea') || s.includes('planning') || !s;
+      if (stage === 'In Development') return s.includes('dev') || s.includes('prog');
+      if (stage === 'Submitted / Review') return s.includes('submit') || s.includes('review');
+      if (stage === 'Launched / Active') return s.includes('launch') || s.includes('active') || s.includes('live');
+      return false;
+    });
+
+    return `
+      <div class="board-column">
+        <div class="board-col-header">
+          <span>${escapeHtml(stage)}</span>
+          <span class="count-pill neutral">${items.length}</span>
+        </div>
+        <div class="board-col-body">
+          ${items.map((p) => `
+            <div class="board-card">
+              <div class="board-card-title">${escapeHtml(p.name)}</div>
+              <div class="button-row">
+                <span class="badge badge-info">${escapeHtml(p.category || 'Product')}</span>
+                ${p.pricing_model ? `<span class="badge badge-success">${escapeHtml(p.pricing_model)}</span>` : ''}
+              </div>
+              ${p.next_milestone ? `<div class="text-xs text-muted">Milestone: ${escapeHtml(p.next_milestone)}</div>` : ''}
+              <div class="board-card-footer">
+                <button class="btn btn-ghost btn-xs" onclick="openProjectModal(${p.id})">Edit</button>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderProjectsTimeline() {
+  const container = document.getElementById('projects-timeline-wrapper');
+  if (!container) return;
+
+  if (state.projects.length === 0) {
+    container.innerHTML = `<div class="empty-state">No projects logged yet.</div>`;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="timeline-container">
+      <div class="timeline-header-row">
+        <span class="timeline-col-title">Project Initiative</span>
+        <span class="timeline-col-milestone">Current Status &amp; Next Concrete Milestone</span>
+      </div>
+      ${state.projects.map((p) => `
+        <div class="timeline-row" onclick="openProjectModal(${p.id})">
+          <div class="timeline-meta-box">
+            <strong>${escapeHtml(p.name)}</strong>
+            <span class="badge badge-muted text-xs">${escapeHtml(p.category || 'Product')}</span>
+          </div>
+          <div class="timeline-bar-track">
+            <div class="timeline-bar-fill ${p.status?.includes('Active') || p.status?.includes('Review') ? 'status-active' : ''}">
+              <span class="timeline-bar-label">${escapeHtml(p.status || 'Planning')} — ${escapeHtml(p.next_milestone || 'Milestone Pending')}</span>
+            </div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+// ============================================================================
+// VIEW: MASTER CONTENT & BUSINESS CALENDAR
+// ============================================================================
+
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
+
+function renderCalendar(year = state.calendarYear, month = state.calendarMonth) {
+  state.calendarYear = year;
+  state.calendarMonth = month;
+
+  const heading = document.getElementById('cal-month-title');
+  if (heading) {
+    heading.textContent = `${MONTH_NAMES[month]} ${year}`;
+  }
+
+  const grid = document.getElementById('calendar-grid');
+  if (!grid) return;
+
+  const firstDayIndex = new Date(year, month, 1).getDay(); // 0 = Sun
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const prevMonthDays = new Date(year, month, 0).getDate();
+
+  const eventsByDate = {};
+  const addEvent = (dateStr, ev) => {
+    if (!dateStr) return;
+    const cleanDate = dateStr.slice(0, 10);
+    if (!eventsByDate[cleanDate]) eventsByDate[cleanDate] = [];
+    eventsByDate[cleanDate].push(ev);
+  };
+
+  if (state.calendarFilter === 'all' || state.calendarFilter === 'content') {
+    state.contentItems.forEach((c) => {
+      const d = c.scheduled_date || c.published_date;
+      if (d) {
+        addEvent(d, {
+          id: c.id,
+          type: 'content',
+          label: `🎥 ${c.title}`,
+          cssClass: 'cal-event-content',
+          status: c.stage
+        });
+      }
+    });
+  }
+
+  if (state.calendarFilter === 'all' || state.calendarFilter === 'sponsorships') {
+    state.sponsorships.forEach((s) => {
+      if (s.due_date) {
+        addEvent(s.due_date, {
+          id: s.id,
+          type: 'sponsorships',
+          label: `💼 ${s.brand} (Due)`,
+          cssClass: 'cal-event-sponsor',
+          status: s.status
+        });
+      }
+    });
+  }
+
+  if (state.calendarFilter === 'all' || state.calendarFilter === 'tasks') {
+    state.tasks.forEach((t) => {
+      if (t.due_date) {
+        addEvent(t.due_date, {
+          id: t.id,
+          type: 'tasks',
+          label: `☑ ${t.task_name}`,
+          cssClass: 'cal-event-task',
+          status: t.status
+        });
+      }
+    });
+  }
+
+  if (state.calendarFilter === 'all' || state.calendarFilter === 'goals') {
+    state.goals.forEach((g) => {
+      if (g.target_date || g.deadline) {
+        addEvent(g.target_date || g.deadline, {
+          id: g.id,
+          type: 'goals',
+          label: `🎯 ${g.goal}`,
+          cssClass: 'cal-event-goal',
+          status: g.status
+        });
+      }
+    });
+  }
+
+  const todayStr = state.today || new Date().toISOString().slice(0, 10);
+
+  let html = '';
+
+  for (let i = firstDayIndex - 1; i >= 0; i--) {
+    const d = prevMonthDays - i;
+    html += `
+      <div class="calendar-day-cell prev-month">
+        <span class="day-number">${d}</span>
+      </div>
+    `;
+  }
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const padDay = String(day).padStart(2, '0');
+    const padMonth = String(month + 1).padStart(2, '0');
+    const dateStr = `${year}-${padMonth}-${padDay}`;
+    const isToday = dateStr === todayStr;
+    const dayEvents = eventsByDate[dateStr] || [];
+
+    html += `
+      <div class="calendar-day-cell ${isToday ? 'is-today' : ''}" data-date="${dateStr}">
+        <span class="day-number">${day}</span>
+        <div class="calendar-events-container">
+          ${dayEvents.slice(0, 4).map((ev) => `
+            <div class="cal-event-pill ${ev.cssClass}" onclick="handleCalendarEventClick('${ev.type}', ${ev.id})" title="${escapeHtml(ev.label)} (${escapeHtml(ev.status || '')})">
+              ${escapeHtml(ev.label)}
+            </div>
+          `).join('')}
+          ${dayEvents.length > 4 ? `<div class="cal-event-more">+${dayEvents.length - 4} more</div>` : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  const totalCells = firstDayIndex + daysInMonth;
+  const remaining = (7 - (totalCells % 7)) % 7;
+  for (let nextDay = 1; nextDay <= remaining; nextDay++) {
+    html += `
+      <div class="calendar-day-cell next-month">
+        <span class="day-number">${nextDay}</span>
+      </div>
+    `;
+  }
+
+  grid.innerHTML = html;
+}
+
+function handleCalendarEventClick(type, id) {
+  if (type === 'content') {
+    switchView('content');
+    openContentModal(id);
+  } else if (type === 'sponsorships') {
+    switchView('sponsorships');
+    openSponsorshipModal(id);
+  } else if (type === 'tasks') {
+    switchView('tasks');
+    openTaskModal(id);
+  } else if (type === 'goals') {
+    switchView('goals');
+    openGoalModal(id);
+  }
+}
+
+// ============================================================================
+// VIEW: NOTES & BUSINESS DOCUMENTS
+// ============================================================================
+
+async function loadNotes(includeArchived = false) {
+  try {
+    const params = new URLSearchParams();
+    if (includeArchived || state.noteCategoryFilter === 'archived') {
+      params.set('include_archived', '1');
+    }
+    if (state.noteCategoryFilter && !['all', 'pinned', 'archived'].includes(state.noteCategoryFilter)) {
+      params.set('category', state.noteCategoryFilter);
+    }
+    const data = await api(`/api/commandcenter/notes?${params.toString()}`);
+    state.notes = data.notes || [];
+    renderNotes();
+  } catch (err) {
+    console.error('Error loading notes:', err);
+  }
+}
+
+function renderNotes() {
+  const grid = document.getElementById('notes-grid');
+  if (!grid) return;
+
+  const search = (document.getElementById('notes-search')?.value || '').toLowerCase().trim();
+
+  let filtered = state.notes.filter((n) => {
+    if (state.noteCategoryFilter === 'pinned') return Boolean(n.is_pinned);
+    if (state.noteCategoryFilter === 'archived') return Boolean(n.is_archived);
+    if (!state.noteCategoryFilter || state.noteCategoryFilter === 'all') {
+      return !n.is_archived;
+    }
+    return !n.is_archived && n.category === state.noteCategoryFilter;
+  });
+
+  if (search) {
+    filtered = filtered.filter((n) =>
+      (n.title && n.title.toLowerCase().includes(search)) ||
+      (n.tags && n.tags.toLowerCase().includes(search)) ||
+      (n.body && n.body.toLowerCase().includes(search)) ||
+      (n.category && n.category.toLowerCase().includes(search))
+    );
+  }
+
+  filtered.sort((a, b) => {
+    if (b.is_pinned !== a.is_pinned) return (b.is_pinned || 0) - (a.is_pinned || 0);
+    return new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0);
+  });
+
+  if (filtered.length === 0) {
+    grid.innerHTML = `<div class="empty-state">No notes found. Click "+ New Note / Doc" to create one.</div>`;
+    return;
+  }
+
+  grid.innerHTML = filtered.map((n) => {
+    const tagsArr = (n.tags || '').split(',').map((t) => t.trim()).filter(Boolean);
+    const snippet = (n.body || '').slice(0, 160).replace(/[#*`_~\[\]]/g, '');
+    const dateFormatted = (n.updated_at || n.created_at || '').slice(0, 10);
+
+    return `
+      <div class="note-card ${n.is_pinned ? 'is-pinned' : ''}" onclick="openNoteModal(${n.id})">
+        <div class="note-card-header">
+          <span class="badge ${n.is_pinned ? 'badge-warning' : 'badge-muted'}">${escapeHtml(n.category || 'General')}</span>
+          ${n.is_pinned ? '<span class="note-pin-icon" title="Pinned Note">📌</span>' : ''}
+          ${n.is_archived ? '<span class="badge badge-danger">Archived</span>' : ''}
+        </div>
+        <h4 class="note-card-title">${escapeHtml(n.title || 'Untitled Document')}</h4>
+        <div class="note-card-snippet">${escapeHtml(snippet)}${n.body && n.body.length > 160 ? '...' : ''}</div>
+        ${tagsArr.length > 0 ? `
+          <div class="note-card-tags">
+            ${tagsArr.map((t) => `<span class="tag-chip">#${escapeHtml(t)}</span>`).join('')}
+          </div>
+        ` : ''}
+        <div class="note-card-footer">
+          <span class="text-xs text-muted">${dateFormatted}</span>
+          ${n.record_type && n.record_id ? `<span class="badge badge-info text-xs">${escapeHtml(n.record_type)} #${n.record_id}</span>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function openNoteModal(id = null) {
+  const modal = document.getElementById('modal-note');
+  const form = document.getElementById('form-note');
+  form.reset();
+
+  const delBtn = document.getElementById('btn-delete-note');
+  const pinBtn = document.getElementById('btn-note-pin-toggle');
+  const archiveBtn = document.getElementById('btn-note-archive-toggle');
+  const previewPane = document.getElementById('note-preview-pane');
+
+  if (id) {
+    state.activeNoteId = Number(id);
+    let note = state.notes.find((n) => n.id === Number(id));
+    if (!note) {
+      const res = await api(`/api/commandcenter/notes/${id}`);
+      note = res.note;
+    }
+    fillNoteModal(note);
+    document.getElementById('note-modal-title').textContent = 'Edit Note / Document';
+    delBtn.classList.remove('hidden');
+
+    if (note.is_pinned) {
+      pinBtn.classList.add('active');
+      pinBtn.textContent = '📌 Pinned';
+    } else {
+      pinBtn.classList.remove('active');
+      pinBtn.textContent = '📌 Pin';
+    }
+
+    if (note.is_archived) {
+      archiveBtn.classList.add('text-danger');
+      archiveBtn.textContent = 'Unarchive';
+    } else {
+      archiveBtn.classList.remove('text-danger');
+      archiveBtn.textContent = 'Archive';
+    }
+
+    renderRecordRelationships('notes', note.id, 'note-relationships-container');
+    renderRecordAttachments('notes', note.id, 'note-attachments-container');
+  } else {
+    state.activeNoteId = null;
+    document.getElementById('note-id').value = '';
+    document.getElementById('note-category').value = 'General';
+    document.getElementById('note-modal-title').textContent = 'New Note / Document';
+    delBtn.classList.add('hidden');
+    pinBtn.classList.remove('active');
+    pinBtn.textContent = '📌 Pin';
+    archiveBtn.textContent = 'Archive';
+
+    document.getElementById('note-relationships-container').innerHTML = '';
+    document.getElementById('note-attachments-container').innerHTML = '';
+  }
+
+  const bodyText = document.getElementById('note-body').value;
+  previewPane.innerHTML = renderMarkdown(bodyText);
+
+  modal.classList.remove('hidden');
+  document.getElementById('note-title').focus();
+}
+
+function fillNoteModal(item) {
+  document.getElementById('note-id').value = item.id;
+  document.getElementById('note-title').value = item.title || '';
+  document.getElementById('note-category').value = item.category || 'General';
+  document.getElementById('note-tags').value = item.tags || '';
+  document.getElementById('note-assoc-type').value = item.record_type || '';
+  document.getElementById('note-assoc-id').value = item.record_id || '';
+  document.getElementById('note-body').value = item.body || '';
+}
+
+function insertMarkdown(cmd) {
+  const textarea = document.getElementById('note-body');
+  if (!textarea) return;
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const text = textarea.value;
+  const selected = text.slice(start, end);
+
+  let replacement = '';
+  switch (cmd) {
+    case 'bold': replacement = `**${selected || 'bold text'}**`; break;
+    case 'italic': replacement = `*${selected || 'italic text'}*`; break;
+    case 'h1': replacement = `\n# ${selected || 'Heading 1'}\n`; break;
+    case 'h2': replacement = `\n## ${selected || 'Heading 2'}\n`; break;
+    case 'h3': replacement = `\n### ${selected || 'Heading 3'}\n`; break;
+    case 'bullet': replacement = `\n- ${selected || 'List item'}\n`; break;
+    case 'task': replacement = `\n- [ ] ${selected || 'To-do item'}\n`; break;
+    case 'code': replacement = `\n\`\`\`\n${selected || 'code here'}\n\`\`\`\n`; break;
+    case 'link': replacement = `[${selected || 'link text'}](https://example.com)`; break;
+    case 'quote': replacement = `\n> ${selected || 'Quote'}\n`; break;
+    case 'table': replacement = `\n| Column 1 | Column 2 |\n|---|---|\n| Data 1 | Data 2 |\n`; break;
+    default: replacement = selected;
+  }
+
+  textarea.value = text.slice(0, start) + replacement + text.slice(end);
+  textarea.selectionStart = textarea.selectionEnd = start + replacement.length;
+  textarea.focus();
+
+  const preview = document.getElementById('note-preview-pane');
+  if (preview) preview.innerHTML = renderMarkdown(textarea.value);
+}
+
+// ============================================================================
+// VIEW: SECURE FILES & ATTACHMENTS
+// ============================================================================
+
+function formatFileSize(bytes) {
+  if (!bytes || bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+async function loadFiles(recordType = null, recordId = null) {
+  try {
+    const params = new URLSearchParams();
+    if (recordType) params.set('record_type', recordType);
+    if (recordId) params.set('record_id', recordId);
+    if (state.filesFilter && state.filesFilter !== 'all') {
+      params.set('record_type', state.filesFilter);
+    }
+    const data = await api(`/api/commandcenter/files?${params.toString()}`);
+    if (!recordType) {
+      state.files = data.attachments || [];
+      renderFilesTable();
+    }
+    return data.attachments || [];
+  } catch (err) {
+    console.error('Error loading files:', err);
+    return [];
+  }
+}
+
+function renderFilesTable() {
+  const tbody = document.getElementById('files-tbody');
+  if (!tbody) return;
+
+  const search = (document.getElementById('files-search')?.value || '').toLowerCase().trim();
+
+  let filtered = state.files.filter((f) => {
+    if (state.filesFilter && state.filesFilter !== 'all') {
+      return f.record_type === state.filesFilter;
+    }
+    return true;
+  });
+
+  if (search) {
+    filtered = filtered.filter((f) =>
+      (f.filename && f.filename.toLowerCase().includes(search)) ||
+      (f.record_type && f.record_type.toLowerCase().includes(search)) ||
+      (f.description && f.description.toLowerCase().includes(search)) ||
+      (f.category && f.category.toLowerCase().includes(search))
+    );
+  }
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="empty-state">No files uploaded yet. Click "+ Upload File" above.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map((f) => {
+    const isImage = (f.mime_type || '').startsWith('image/');
+    const isPdf = (f.mime_type || '') === 'application/pdf';
+    const icon = isImage ? '🖼️' : (isPdf ? '📄' : '📎');
+
+    return `
+      <tr>
+        <td>
+          <div class="cell-primary">
+            <span style="margin-right:6px;">${icon}</span>
+            <a href="/api/commandcenter/files/${f.id}/view" target="_blank" rel="noopener noreferrer"><strong>${escapeHtml(f.filename)}</strong></a>
+          </div>
+          ${f.description ? `<div class="cell-sub">${escapeHtml(f.description)}</div>` : ''}
+        </td>
+        <td>
+          ${f.record_type && f.record_id ? `<span class="badge badge-info">${escapeHtml(f.record_type)} #${f.record_id}</span>` : '<span class="badge badge-muted">General</span>'}
+        </td>
+        <td><span class="text-xs text-muted">${escapeHtml(f.mime_type || 'unknown')}</span></td>
+        <td class="num">${formatFileSize(f.size_bytes)}</td>
+        <td><span class="text-xs">${escapeHtml(f.uploaded_by || 'Josh Greenway')}</span></td>
+        <td><span class="text-xs">${(f.created_at || '').slice(0, 10)}</span></td>
+        <td class="text-right">
+          <div class="action-card-buttons" style="justify-content:flex-end;">
+            <a href="/api/commandcenter/files/${f.id}/view" target="_blank" class="btn btn-ghost btn-xs">View</a>
+            <a href="/api/commandcenter/files/${f.id}/download" download="${escapeHtml(f.filename)}" class="btn btn-secondary btn-xs">Download</a>
+            <button class="btn btn-danger btn-xs" onclick="deleteAttachment(${f.id})">Delete</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function renderRecordAttachments(recordType, recordId, containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  if (!recordId) {
+    container.innerHTML = `
+      <div class="subsection-box">
+        <h4 class="subsection-title">Attachments &amp; Files</h4>
+        <p class="text-xs text-muted">Save this record first to upload attached contracts, briefs, screenshots, and receipts.</p>
+      </div>
+    `;
+    return;
+  }
+
+  const files = await loadFiles(recordType, recordId);
+
+  container.innerHTML = `
+    <div class="subsection-box">
+      <div class="subsection-header">
+        <h4 class="subsection-title">Attached Files (${files.length})</h4>
+        <label class="btn btn-secondary btn-xs upload-btn-label">
+          + Attach File
+          <input type="file" class="hidden-file-input" onchange="handleRecordFileUpload(event, '${recordType}', ${recordId}, '${containerId}')">
+        </label>
+      </div>
+      <div class="attached-files-list">
+        ${files.length === 0 ? `<div class="empty-state text-xs">No files attached to this record yet.</div>` : files.map((f) => `
+          <div class="attached-file-item">
+            <div class="attached-file-info">
+              <a href="/api/commandcenter/files/${f.id}/view" target="_blank" class="attached-file-name">${escapeHtml(f.filename)}</a>
+              <span class="text-xs text-muted">(${formatFileSize(f.size_bytes)})</span>
+            </div>
+            <div class="attached-file-actions">
+              <a href="/api/commandcenter/files/${f.id}/download" download="${escapeHtml(f.filename)}" class="btn btn-ghost btn-xs">Download</a>
+              <button type="button" class="btn btn-danger btn-xs" onclick="deleteAttachment(${f.id}, () => renderRecordAttachments('${recordType}', ${recordId}, '${containerId}'))">&times;</button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+async function handleRecordFileUpload(event, recordType, recordId, containerId) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('record_type', recordType);
+    formData.append('record_id', recordId);
+    formData.append('category', 'attachment');
+
+    const res = await fetch('/api/commandcenter/files/upload', {
+      method: 'POST',
+      headers: {
+        'X-Dashboard-Csrf': state.csrfToken
+      },
+      body: formData
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Upload failed (${res.status})`);
+    }
+    showToast(`Attached ${file.name}`);
+    await renderRecordAttachments(recordType, recordId, containerId);
+    await loadFiles();
+  } catch (err) {
+    showToast(`Upload failed: ${err.message}`);
+  }
+}
+
+async function handleGlobalFileUpload(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('category', 'general');
+
+    const res = await fetch('/api/commandcenter/files/upload', {
+      method: 'POST',
+      headers: {
+        'X-Dashboard-Csrf': state.csrfToken
+      },
+      body: formData
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Upload failed (${res.status})`);
+    }
+    showToast(`Uploaded ${file.name}`);
+    await loadFiles();
+  } catch (err) {
+    showToast(`Upload failed: ${err.message}`);
+  }
+}
+
+async function deleteAttachment(id, onDeleted = null) {
+  if (!confirm('Are you sure you want to delete this file attachment?')) return;
+  try {
+    await api(`/api/commandcenter/files/${id}`, { method: 'DELETE' });
+    showToast('File deleted');
+    if (onDeleted) {
+      onDeleted();
+    }
+    await loadFiles();
+  } catch (err) {
+    showToast(err.message);
+  }
+}
+
+// ============================================================================
+// SUBSYSTEM: RECORD RELATIONSHIPS
+// ============================================================================
+
+async function renderRecordRelationships(recordType, recordId, containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  if (!recordId) {
+    container.innerHTML = `
+      <div class="subsection-box">
+        <h4 class="subsection-title">Connected Relationships</h4>
+        <p class="text-xs text-muted">Save this record first to link related sponsors, content, tasks, or projects.</p>
+      </div>
+    `;
+    return;
+  }
+
+  try {
+    const res = await api(`/api/commandcenter/relationships?record_type=${recordType}&record_id=${recordId}`);
+    const rels = res.relationships || [];
+
+    container.innerHTML = `
+      <div class="subsection-box">
+        <div class="subsection-header">
+          <h4 class="subsection-title">Connected Records (${rels.length})</h4>
+          <button type="button" class="btn btn-secondary btn-xs" onclick="openLinkRecordModal('${recordType}', ${recordId}, '${containerId}')">+ Connect Record</button>
+        </div>
+        <div class="relationship-chips-container">
+          ${rels.length === 0 ? `<div class="empty-state text-xs">No connected records linked yet.</div>` : rels.map((r) => {
+            const isSource = r.source_type === recordType && r.source_id === Number(recordId);
+            const otherType = isSource ? r.target_type : r.source_type;
+            const otherId = isSource ? r.target_id : r.source_id;
+
+            return `
+              <div class="relation-chip">
+                <span class="relation-badge">${escapeHtml(otherType)}</span>
+                <span class="relation-title" onclick="navigateToRelatedRecord('${otherType}', ${otherId})">#${otherId}</span>
+                <button type="button" class="relation-remove" onclick="removeRelationship(${r.id}, '${recordType}', ${recordId}, '${containerId}')">&times;</button>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  } catch (err) {
+    console.error('Error rendering relationships:', err);
+  }
+}
+
+function openLinkRecordModal(sourceType, sourceId, containerId) {
+  const modal = document.getElementById('modal-link-record');
+  document.getElementById('link-source-type').value = sourceType;
+  document.getElementById('link-source-id').value = sourceId;
+  modal.dataset.containerId = containerId;
+
+  const targetTypeSelect = document.getElementById('link-target-type');
+  populateLinkTargetOptions(targetTypeSelect.value);
+
+  modal.classList.remove('hidden');
+}
+
+function populateLinkTargetOptions(targetType) {
+  const recordSelect = document.getElementById('link-target-record');
+  recordSelect.innerHTML = '<option value="">Select a record...</option>';
+
+  let items = [];
+  if (targetType === 'sponsorships') {
+    items = state.sponsorships.map((s) => ({ id: s.id, label: `${s.brand} (${s.status || 'Prospect'})` }));
+  } else if (targetType === 'content') {
+    items = state.contentItems.map((c) => ({ id: c.id, label: `${c.title} [${c.platform || 'General'}]` }));
+  } else if (targetType === 'tasks') {
+    items = state.tasks.map((t) => ({ id: t.id, label: `${t.task_name} [${t.status}]` }));
+  } else if (targetType === 'notes') {
+    items = state.notes.map((n) => ({ id: n.id, label: `${n.title} (${n.category || 'General'})` }));
+  } else if (targetType === 'projects') {
+    items = state.projects.map((p) => ({ id: p.id, label: `${p.name} (${p.status || ''})` }));
+  } else if (targetType === 'media') {
+    items = state.mediaOutreach.map((m) => ({ id: m.id, label: `${m.outlet} (${m.status})` }));
+  } else if (targetType === 'affiliates') {
+    items = state.affiliates.map((a) => ({ id: a.id, label: `${a.program}` }));
+  }
+
+  items.forEach((item) => {
+    const opt = document.createElement('option');
+    opt.value = item.id;
+    opt.textContent = item.label;
+    recordSelect.appendChild(opt);
+  });
+}
+
+function navigateToRelatedRecord(type, id) {
+  if (type === 'sponsorships') {
+    switchView('sponsorships');
+    openSponsorshipModal(id);
+  } else if (type === 'content') {
+    switchView('content');
+    openContentModal(id);
+  } else if (type === 'tasks') {
+    switchView('tasks');
+    openTaskModal(id);
+  } else if (type === 'notes') {
+    switchView('notes');
+    openNoteModal(id);
+  } else if (type === 'projects') {
+    switchView('projects');
+    openProjectModal(id);
+  } else if (type === 'media') {
+    switchView('media');
+    openMediaModal(id);
+  } else if (type === 'affiliates') {
+    switchView('affiliates');
+    openAffiliateModal(id);
+  }
+}
+
+async function removeRelationship(id, sourceType, sourceId, containerId) {
+  try {
+    await api(`/api/commandcenter/relationships/${id}`, { method: 'DELETE' });
+    showToast('Relationship disconnected');
+    renderRecordRelationships(sourceType, sourceId, containerId);
+  } catch (err) {
+    showToast(err.message);
+  }
+}
+
+// ============================================================================
+// SUBSYSTEM: CUSTOM FIELDS
+// ============================================================================
+
+async function loadCustomFieldDefs() {
+  try {
+    const res = await api('/api/commandcenter/custom-fields/definitions');
+    state.customFieldDefs = res.definitions || [];
+  } catch (err) {
+    console.error('Error loading custom field definitions:', err);
+  }
+}
+
+async function renderCustomFields(recordType, recordId, containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  const defs = state.customFieldDefs.filter((d) => d.table_name === recordType);
+  if (defs.length === 0) {
+    container.innerHTML = `
+      <div class="custom-fields-box">
+        <div class="subsection-header">
+          <h4 class="subsection-title">Custom Properties</h4>
+          <button type="button" class="btn btn-ghost btn-xs" onclick="openCustomFieldModal('${recordType}')">+ Add Property</button>
+        </div>
+        <p class="text-xs text-muted">No custom properties defined for ${escapeHtml(recordType)}. Click "+ Add Property" to add custom columns (e.g. ROI, Promo Code, Tracking URL).</p>
+      </div>
+    `;
+    return;
+  }
+
+  let values = {};
+  if (recordId) {
+    try {
+      const res = await api(`/api/commandcenter/custom-fields/values?record_type=${recordType}&record_id=${recordId}`);
+      values = res.values || {};
+    } catch (err) {
+      console.error('Error loading custom field values:', err);
+    }
+  }
+
+  container.innerHTML = `
+    <div class="custom-fields-box">
+      <div class="subsection-header">
+        <h4 class="subsection-title">Custom Properties</h4>
+        <button type="button" class="btn btn-ghost btn-xs" onclick="openCustomFieldModal('${recordType}')">+ Add Property</button>
+      </div>
+      <div class="form-grid-2 mt-8">
+        ${defs.map((d) => {
+          const val = values[d.field_name] ?? (d.default_value || '');
+          let inputHtml = '';
+          switch (d.field_type) {
+            case 'number':
+            case 'currency':
+              inputHtml = `<input type="number" step="${d.field_type === 'currency' ? '0.01' : '1'}" class="custom-field-input" data-cf-field="${escapeHtml(d.field_name)}" value="${escapeHtml(val)}" />`;
+              break;
+            case 'date':
+              inputHtml = `<input type="date" class="custom-field-input" data-cf-field="${escapeHtml(d.field_name)}" value="${escapeHtml(val)}" />`;
+              break;
+            case 'checkbox':
+              inputHtml = `<label class="check-item"><input type="checkbox" class="custom-field-input" data-cf-field="${escapeHtml(d.field_name)}" ${val === '1' || val === true || val === 'true' ? 'checked' : ''} /> Enabled</label>`;
+              break;
+            case 'select':
+            case 'status':
+              const opts = (d.options ? JSON.parse(d.options) : []).map((o) =>
+                `<option value="${escapeHtml(o)}" ${val === o ? 'selected' : ''}>${escapeHtml(o)}</option>`
+              ).join('');
+              inputHtml = `<select class="custom-field-input" data-cf-field="${escapeHtml(d.field_name)}"><option value="">Select...</option>${opts}</select>`;
+              break;
+            case 'url':
+              inputHtml = `<input type="url" class="custom-field-input" data-cf-field="${escapeHtml(d.field_name)}" value="${escapeHtml(val)}" placeholder="https://..." />`;
+              break;
+            default:
+              inputHtml = `<input type="text" class="custom-field-input" data-cf-field="${escapeHtml(d.field_name)}" value="${escapeHtml(val)}" />`;
+          }
+
+          return `
+            <div class="form-group">
+              <label class="form-label">${escapeHtml(d.field_label)} <span class="text-xs text-muted">(${escapeHtml(d.field_type)})</span></label>
+              ${inputHtml}
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function openCustomFieldModal(entityType) {
+  const modal = document.getElementById('modal-custom-field');
+  document.getElementById('form-custom-field').reset();
+  document.getElementById('cf-entity-type').value = entityType;
+  document.getElementById('cf-options-group').classList.add('hidden');
+  modal.classList.remove('hidden');
+}
+
+async function saveCustomFieldValues(recordType, recordId, containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  const inputs = container.querySelectorAll('.custom-field-input');
+  if (inputs.length === 0) return;
+
+  const values = {};
+  inputs.forEach((input) => {
+    const key = input.dataset.cfField;
+    if (!key) return;
+    if (input.type === 'checkbox') {
+      values[key] = input.checked ? '1' : '0';
+    } else {
+      values[key] = input.value;
+    }
+  });
+
+  try {
+    await api('/api/commandcenter/custom-fields/values', {
+      method: 'POST',
+      body: {
+        record_type: recordType,
+        record_id: Number(recordId),
+        values
+      }
+    });
+  } catch (err) {
+    console.error('Error saving custom field values:', err);
+  }
+}
+
+// ============================================================================
+// VIEW: TEAM ACCESS & PERMISSIONS
+// ============================================================================
+
+async function loadUsers() {
+  try {
+    const res = await api('/api/commandcenter/users');
+    state.users = res.users || [];
+    renderUsersTable();
+  } catch (err) {
+    console.warn('User permissions view restricted or not loaded:', err.message);
+  }
+}
+
+function renderUsersTable() {
+  const tbody = document.getElementById('users-tbody');
+  if (!tbody) return;
+
+  if (state.users.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-state">No users loaded.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = state.users.map((u) => {
+    let roleBadgeClass = 'badge-purple';
+    if (u.role === 'admin') roleBadgeClass = 'badge-info';
+    if (u.role === 'authorized_user') roleBadgeClass = 'badge-success';
+
+    let modulesLabel = 'All Operational Areas';
+    if (u.allowed_modules && u.allowed_modules !== '*') {
+      try {
+        const mods = JSON.parse(u.allowed_modules);
+        modulesLabel = Array.isArray(mods) ? mods.join(', ') : u.allowed_modules;
+      } catch {
+        modulesLabel = u.allowed_modules;
+      }
+    }
+
+    return `
+      <tr>
+        <td><strong>${escapeHtml(u.name || (u.email.includes('ritagreenway') ? 'Rita Greenway' : 'Josh Greenway'))}</strong></td>
+        <td><code>${escapeHtml(u.email)}</code></td>
+        <td><span class="badge ${roleBadgeClass}">${escapeHtml(u.role)}</span></td>
+        <td><span class="text-xs">${escapeHtml(modulesLabel)}</span></td>
+        <td>
+          <span class="badge ${u.can_export ? 'badge-success' : 'badge-muted'}">Export: ${u.can_export ? 'Yes' : 'No'}</span>
+          <span class="badge ${u.can_delete ? 'badge-danger' : 'badge-muted'}">Delete: ${u.can_delete ? 'Yes' : 'No'}</span>
+        </td>
+        <td class="text-right">
+          <button class="btn btn-ghost btn-xs" onclick="openUserPermissionModal(${u.id})">Edit Access</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function openUserPermissionModal(userId) {
+  const user = state.users.find((u) => u.id === Number(userId));
+  if (!user) return;
+
+  const modal = document.getElementById('modal-user-permission');
+  document.getElementById('user-perm-id').value = user.id;
+  document.getElementById('user-perm-name').value = user.name || '';
+  document.getElementById('user-perm-email').value = user.email || '';
+  document.getElementById('user-perm-role').value = user.role || 'authorized_user';
+
+  const allModules = [
+    'dashboard', 'sponsorships', 'media', 'affiliates', 'revenue',
+    'content', 'growth', 'goals', 'projects', 'tasks', 'calendar',
+    'notes', 'files', 'reference', 'health', 'backups', 'users'
+  ];
+
+  let allowedArr = allModules;
+  if (user.allowed_modules && user.allowed_modules !== '*') {
+    try {
+      allowedArr = JSON.parse(user.allowed_modules);
+    } catch {
+      allowedArr = allModules;
+    }
+  }
+
+  const container = document.getElementById('user-modules-checkboxes');
+  container.innerHTML = allModules.map((m) => `
+    <label class="check-item">
+      <input type="checkbox" class="user-module-cb" value="${m}" ${allowedArr.includes(m) || user.role === 'owner' ? 'checked' : ''} />
+      ${m.charAt(0).toUpperCase() + m.slice(1)}
+    </label>
+  `).join('');
+
+  modal.classList.remove('hidden');
+}
+
+// ============================================================================
+// SUBSYSTEM: UNIVERSAL SEARCH MODAL & RESTORE GUIDE
+// ============================================================================
+
+let universalSearchDebounce = null;
+
+function openSearchModal(query = '') {
+  const modal = document.getElementById('modal-global-search');
+  const input = document.getElementById('modal-search-input');
+  modal.classList.remove('hidden');
+  if (query) {
+    input.value = query;
+    executeUniversalSearch(query);
+  }
+  input.focus();
+  input.select();
+}
+
+function handleSearchModalInput(e) {
+  const q = e.target.value.trim();
+  clearTimeout(universalSearchDebounce);
+  if (!q) {
+    document.getElementById('modal-search-results').innerHTML = `<div class="empty-state">Start typing to search across all records...</div>`;
+    document.getElementById('search-total-count').textContent = '0';
+    return;
+  }
+  universalSearchDebounce = setTimeout(() => {
+    executeUniversalSearch(q);
+  }, 120);
+}
+
+async function executeUniversalSearch(q) {
+  const resultsContainer = document.getElementById('modal-search-results');
+  resultsContainer.innerHTML = `<div class="p-12 text-muted">Searching...</div>`;
+
+  try {
+    const filter = state.searchFilter || 'all';
+    const data = await api(`/api/commandcenter/search?q=${encodeURIComponent(q)}&type=${encodeURIComponent(filter)}`);
+    renderSearchModalResults(data);
+  } catch (err) {
+    resultsContainer.innerHTML = `<div class="empty-state text-danger">Search error: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function renderSearchModalResults(data) {
+  const container = document.getElementById('modal-search-results');
+  const countEl = document.getElementById('search-total-count');
+  if (countEl) countEl.textContent = data.total || 0;
+
+  if (!data.results || data.results.length === 0) {
+    container.innerHTML = `<div class="empty-state">No matching records found for "${escapeHtml(data.query)}"</div>`;
+    return;
+  }
+
+  container.innerHTML = data.results.map((r) => `
+    <div class="search-result-row" onclick="handleSearchResultClick('${r.type}', ${r.id})">
+      <div class="search-result-main">
+        <div class="search-result-title-line">
+          <span class="badge ${statusBadgeClass(r.status)}">${escapeHtml(r.type_label)}</span>
+          <span class="search-result-title">${escapeHtml(r.title)}</span>
+          ${r.status ? `<span class="badge badge-muted">${escapeHtml(r.status)}</span>` : ''}
+        </div>
+        ${r.snippet ? `<div class="search-result-snippet">${r.snippet}</div>` : ''}
+      </div>
+      <div class="search-result-meta">
+        ${r.date ? `<span class="text-xs text-muted">${escapeHtml(r.date)}</span>` : ''}
+        <span class="search-result-arrow">→</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function handleSearchResultClick(type, id) {
+  document.getElementById('modal-global-search').classList.add('hidden');
+  navigateToRelatedRecord(type, id);
+}
+
+async function openRestoreGuideModal() {
+  const modal = document.getElementById('modal-restore-guide');
+  const body = document.getElementById('restore-guide-body');
+  modal.classList.remove('hidden');
+  body.innerHTML = '<p>Loading restore documentation...</p>';
+
+  try {
+    const res = await api('/api/commandcenter/backup/restore-guide');
+    body.innerHTML = renderMarkdown(res.guide_markdown);
+  } catch (err) {
+    body.innerHTML = `<p class="text-danger">Failed to load guide: ${escapeHtml(err.message)}</p>`;
+  }
 }
 
 // ============================================================================
@@ -2351,37 +3681,399 @@ function bindEventListeners() {
   });
 
   // Quick sidebar buttons
-  document.getElementById('btn-quick-sponsorship').addEventListener('click', () => openSponsorshipModal());
-  document.getElementById('btn-quick-media').addEventListener('click', () => openMediaModal());
-  document.getElementById('btn-quick-content').addEventListener('click', () => openContentModal());
-  document.getElementById('btn-quick-task').addEventListener('click', () => openTaskModal());
-  document.getElementById('btn-quick-revenue').addEventListener('click', () => openRevenueModal());
+  document.getElementById('btn-quick-sponsorship')?.addEventListener('click', () => openSponsorshipModal());
+  document.getElementById('btn-quick-content')?.addEventListener('click', () => openContentModal());
+  document.getElementById('btn-quick-note')?.addEventListener('click', () => openNoteModal());
+  document.getElementById('btn-quick-media')?.addEventListener('click', () => openMediaModal());
+  document.getElementById('btn-quick-task')?.addEventListener('click', () => openTaskModal());
+  document.getElementById('btn-quick-revenue')?.addEventListener('click', () => openRevenueModal());
+
+  // Mobile navigation & search
+  const btnMobileMenu = document.getElementById('btn-mobile-menu');
+  const sidebar = document.getElementById('sidebar');
+  const sidebarBackdrop = document.getElementById('sidebar-backdrop');
+  if (btnMobileMenu && sidebar) {
+    btnMobileMenu.addEventListener('click', () => {
+      sidebar.classList.toggle('open');
+      if (sidebarBackdrop) sidebarBackdrop.classList.toggle('hidden');
+    });
+  }
+  if (sidebarBackdrop && sidebar) {
+    sidebarBackdrop.addEventListener('click', () => {
+      sidebar.classList.remove('open');
+      sidebarBackdrop.classList.add('hidden');
+    });
+  }
+  document.getElementById('btn-mobile-search')?.addEventListener('click', () => openSearchModal());
 
   // Topbar buttons
-  document.getElementById('btn-topbar-import-csv').addEventListener('click', () => {
+  document.getElementById('btn-topbar-import-csv')?.addEventListener('click', () => {
     document.getElementById('modal-csv-import').classList.remove('hidden');
   });
-  document.getElementById('btn-sponsorship-import-csv').addEventListener('click', () => {
+  document.getElementById('btn-sponsorship-import-csv')?.addEventListener('click', () => {
     document.getElementById('modal-csv-import').classList.remove('hidden');
   });
-  document.getElementById('btn-topbar-snapshot').addEventListener('click', createDiskSnapshot);
-  document.getElementById('btn-create-disk-snapshot').addEventListener('click', createDiskSnapshot);
-  document.getElementById('btn-run-notion-import').addEventListener('click', runNotionImport);
+  document.getElementById('btn-topbar-snapshot')?.addEventListener('click', createDiskSnapshot);
+  document.getElementById('btn-create-disk-snapshot')?.addEventListener('click', createDiskSnapshot);
+  document.getElementById('btn-run-notion-import')?.addEventListener('click', runNotionImport);
 
   // View "New" buttons
-  document.getElementById('btn-new-sponsorship').addEventListener('click', () => openSponsorshipModal());
-  document.getElementById('btn-new-media').addEventListener('click', () => openMediaModal());
-  document.getElementById('btn-new-affiliate').addEventListener('click', () => openAffiliateModal());
-  document.getElementById('btn-new-content').addEventListener('click', () => openContentModal());
-  document.getElementById('btn-new-revenue').addEventListener('click', () => openRevenueModal());
-  document.getElementById('btn-new-growth').addEventListener('click', () => openGrowthModal());
-  document.getElementById('btn-new-goal').addEventListener('click', () => openGoalModal());
-  document.getElementById('btn-new-project').addEventListener('click', () => openProjectModal());
-  document.getElementById('btn-new-recipe').addEventListener('click', () => openRecipeModal());
-  document.getElementById('btn-new-printing').addEventListener('click', () => openPrintingModal());
-  document.getElementById('btn-new-task').addEventListener('click', () => openTaskModal());
-  document.getElementById('btn-new-reference').addEventListener('click', () => openReferenceModal());
-  document.getElementById('btn-new-health').addEventListener('click', () => openHealthModal());
+  document.getElementById('btn-new-sponsorship')?.addEventListener('click', () => openSponsorshipModal());
+  document.getElementById('btn-new-media')?.addEventListener('click', () => openMediaModal());
+  document.getElementById('btn-new-affiliate')?.addEventListener('click', () => openAffiliateModal());
+  document.getElementById('btn-new-content')?.addEventListener('click', () => openContentModal());
+  document.getElementById('btn-new-note')?.addEventListener('click', () => openNoteModal());
+  document.getElementById('btn-new-revenue')?.addEventListener('click', () => openRevenueModal());
+  document.getElementById('btn-new-growth')?.addEventListener('click', () => openGrowthModal());
+  document.getElementById('btn-new-goal')?.addEventListener('click', () => openGoalModal());
+  document.getElementById('btn-new-project')?.addEventListener('click', () => openProjectModal());
+  document.getElementById('btn-new-recipe')?.addEventListener('click', () => openRecipeModal());
+  document.getElementById('btn-new-printing')?.addEventListener('click', () => openPrintingModal());
+  document.getElementById('btn-new-task')?.addEventListener('click', () => openTaskModal());
+  document.getElementById('btn-new-reference')?.addEventListener('click', () => openReferenceModal());
+  document.getElementById('btn-new-health')?.addEventListener('click', () => openHealthModal());
+
+  // Global File Upload & Restore Guide Buttons
+  document.getElementById('btn-upload-file-global')?.addEventListener('change', handleGlobalFileUpload);
+  document.getElementById('btn-view-restore-guide')?.addEventListener('click', openRestoreGuideModal);
+
+  // Flexible View Toggles: Sponsorships
+  document.getElementById('btn-sponsorship-view-table')?.addEventListener('click', () => {
+    state.sponsorshipViewMode = 'table';
+    document.getElementById('btn-sponsorship-view-table')?.classList.add('active');
+    document.getElementById('btn-sponsorship-view-board')?.classList.remove('active');
+    document.getElementById('sponsorships-table-container')?.classList.remove('hidden');
+    document.getElementById('sponsorships-board-wrapper')?.classList.add('hidden');
+    renderSponsorshipsTable();
+  });
+  document.getElementById('btn-sponsorship-view-board')?.addEventListener('click', () => {
+    state.sponsorshipViewMode = 'board';
+    document.getElementById('btn-sponsorship-view-board')?.classList.add('active');
+    document.getElementById('btn-sponsorship-view-table')?.classList.remove('active');
+    document.getElementById('sponsorships-board-wrapper')?.classList.remove('hidden');
+    document.getElementById('sponsorships-table-container')?.classList.add('hidden');
+    renderSponsorshipsBoard();
+  });
+
+  // Flexible View Toggles: Tasks
+  document.getElementById('btn-tasks-view-table')?.addEventListener('click', () => {
+    state.taskViewMode = 'table';
+    document.getElementById('btn-tasks-view-table')?.classList.add('active');
+    document.getElementById('btn-tasks-view-board')?.classList.remove('active');
+    document.getElementById('tasks-table-container')?.classList.remove('hidden');
+    document.getElementById('tasks-board-wrapper')?.classList.add('hidden');
+    renderTasksTable();
+  });
+  document.getElementById('btn-tasks-view-board')?.addEventListener('click', () => {
+    state.taskViewMode = 'board';
+    document.getElementById('btn-tasks-view-board')?.classList.add('active');
+    document.getElementById('btn-tasks-view-table')?.classList.remove('active');
+    document.getElementById('tasks-board-wrapper')?.classList.remove('hidden');
+    document.getElementById('tasks-table-container')?.classList.add('hidden');
+    renderTasksBoard();
+  });
+
+  // Flexible View Toggles: Projects
+  document.getElementById('btn-projects-view-table')?.addEventListener('click', () => {
+    state.projectViewMode = 'table';
+    document.getElementById('btn-projects-view-table')?.classList.add('active');
+    document.getElementById('btn-projects-view-board')?.classList.remove('active');
+    document.getElementById('btn-projects-view-timeline')?.classList.remove('active');
+    document.getElementById('projects-table-container')?.classList.remove('hidden');
+    document.getElementById('projects-board-wrapper')?.classList.add('hidden');
+    document.getElementById('projects-timeline-wrapper')?.classList.add('hidden');
+    renderProjectsAndCookbook();
+  });
+  document.getElementById('btn-projects-view-board')?.addEventListener('click', () => {
+    state.projectViewMode = 'board';
+    document.getElementById('btn-projects-view-board')?.classList.add('active');
+    document.getElementById('btn-projects-view-table')?.classList.remove('active');
+    document.getElementById('btn-projects-view-timeline')?.classList.remove('active');
+    document.getElementById('projects-board-wrapper')?.classList.remove('hidden');
+    document.getElementById('projects-table-container')?.classList.add('hidden');
+    document.getElementById('projects-timeline-wrapper')?.classList.add('hidden');
+    renderProjectsBoard();
+  });
+  document.getElementById('btn-projects-view-timeline')?.addEventListener('click', () => {
+    state.projectViewMode = 'timeline';
+    document.getElementById('btn-projects-view-timeline')?.classList.add('active');
+    document.getElementById('btn-projects-view-table')?.classList.remove('active');
+    document.getElementById('btn-projects-view-board')?.classList.remove('active');
+    document.getElementById('projects-timeline-wrapper')?.classList.remove('hidden');
+    document.getElementById('projects-table-container')?.classList.add('hidden');
+    document.getElementById('projects-board-wrapper')?.classList.add('hidden');
+    renderProjectsTimeline();
+  });
+
+  // Calendar Controls
+  document.getElementById('btn-cal-prev')?.addEventListener('click', () => {
+    let m = state.calendarMonth - 1;
+    let y = state.calendarYear;
+    if (m < 0) { m = 11; y--; }
+    renderCalendar(y, m);
+  });
+  document.getElementById('btn-cal-next')?.addEventListener('click', () => {
+    let m = state.calendarMonth + 1;
+    let y = state.calendarYear;
+    if (m > 11) { m = 0; y++; }
+    renderCalendar(y, m);
+  });
+  document.getElementById('btn-cal-today')?.addEventListener('click', () => {
+    const now = new Date();
+    renderCalendar(now.getFullYear(), now.getMonth());
+  });
+  document.querySelectorAll('.calendar-filters .filter-pill').forEach((pill) => {
+    pill.addEventListener('click', () => {
+      document.querySelectorAll('.calendar-filters .filter-pill').forEach((p) => p.classList.remove('active'));
+      pill.classList.add('active');
+      state.calendarFilter = pill.dataset.calFilter || 'all';
+      renderCalendar();
+    });
+  });
+
+  // Notes Controls
+  document.querySelectorAll('#notes-category-tabs .pill').forEach((pill) => {
+    pill.addEventListener('click', () => {
+      document.querySelectorAll('#notes-category-tabs .pill').forEach((p) => p.classList.remove('active'));
+      pill.classList.add('active');
+      state.noteCategoryFilter = pill.dataset.ncat;
+      renderNotes();
+    });
+  });
+  document.getElementById('notes-search')?.addEventListener('input', renderNotes);
+
+  document.querySelectorAll('.md-btn').forEach((btn) => {
+    btn.addEventListener('click', () => insertMarkdown(btn.dataset.md));
+  });
+
+  document.querySelectorAll('.editor-tab').forEach((tab) => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.editor-tab').forEach((t) => t.classList.remove('active'));
+      tab.classList.add('active');
+      const mode = tab.dataset.tab;
+      const splitBody = document.getElementById('note-editor-split');
+      const textarea = document.getElementById('note-body');
+      const preview = document.getElementById('note-preview-pane');
+      if (mode === 'edit') {
+        splitBody.className = 'editor-split-body edit-mode';
+        textarea.classList.remove('hidden');
+        preview.classList.add('hidden');
+      } else if (mode === 'preview') {
+        splitBody.className = 'editor-split-body preview-mode';
+        textarea.classList.add('hidden');
+        preview.classList.remove('hidden');
+        preview.innerHTML = renderMarkdown(textarea.value);
+      } else {
+        splitBody.className = 'editor-split-body split-mode';
+        textarea.classList.remove('hidden');
+        preview.classList.remove('hidden');
+        preview.innerHTML = renderMarkdown(textarea.value);
+      }
+    });
+  });
+
+  document.getElementById('note-body')?.addEventListener('input', (e) => {
+    const preview = document.getElementById('note-preview-pane');
+    if (preview) preview.innerHTML = renderMarkdown(e.target.value);
+  });
+
+  document.getElementById('btn-note-pin-toggle')?.addEventListener('click', async () => {
+    if (!state.activeNoteId) return;
+    try {
+      const res = await api(`/api/commandcenter/notes/${state.activeNoteId}/pin`, { method: 'POST' });
+      showToast(res.pinned ? 'Note pinned' : 'Note unpinned');
+      await loadNotes();
+      openNoteModal(state.activeNoteId);
+    } catch (err) {
+      showToast(err.message);
+    }
+  });
+
+  document.getElementById('btn-note-archive-toggle')?.addEventListener('click', async () => {
+    if (!state.activeNoteId) return;
+    try {
+      const res = await api(`/api/commandcenter/notes/${state.activeNoteId}/archive`, { method: 'POST' });
+      showToast(res.archived ? 'Note archived' : 'Note unarchived');
+      document.getElementById('modal-note')?.classList.add('hidden');
+      await loadNotes();
+    } catch (err) {
+      showToast(err.message);
+    }
+  });
+
+  document.getElementById('btn-delete-note')?.addEventListener('click', async () => {
+    if (!state.activeNoteId || !confirm('Delete this note / document?')) return;
+    try {
+      await api(`/api/commandcenter/notes/${state.activeNoteId}`, { method: 'DELETE' });
+      showToast('Note deleted');
+      document.getElementById('modal-note')?.classList.add('hidden');
+      await loadNotes();
+    } catch (err) {
+      showToast(err.message);
+    }
+  });
+
+  document.getElementById('form-note')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('note-id').value;
+    const payload = {
+      title: document.getElementById('note-title').value,
+      category: document.getElementById('note-category').value,
+      tags: document.getElementById('note-tags').value,
+      record_type: document.getElementById('note-assoc-type').value || null,
+      record_id: document.getElementById('note-assoc-id').value ? Number(document.getElementById('note-assoc-id').value) : null,
+      body: document.getElementById('note-body').value
+    };
+
+    try {
+      if (id) {
+        await api(`/api/commandcenter/notes/${id}`, { method: 'PUT', body: payload });
+        showToast('Document saved');
+      } else {
+        await api('/api/commandcenter/notes', { method: 'POST', body: payload });
+        showToast('Document created');
+      }
+      document.getElementById('modal-note')?.classList.add('hidden');
+      await loadNotes();
+    } catch (err) {
+      showToast(err.message);
+    }
+  });
+
+  // Files Filter Pills & Search
+  document.querySelectorAll('#files-filter-pills .pill').forEach((pill) => {
+    pill.addEventListener('click', () => {
+      document.querySelectorAll('#files-filter-pills .pill').forEach((p) => p.classList.remove('active'));
+      pill.classList.add('active');
+      state.filesFilter = pill.dataset.fqf || 'all';
+      renderFilesTable();
+    });
+  });
+  document.getElementById('files-search')?.addEventListener('input', renderFilesTable);
+
+  // Custom Field Form
+  document.getElementById('cf-type')?.addEventListener('change', (e) => {
+    const isSelect = ['select', 'multi_select', 'status'].includes(e.target.value);
+    document.getElementById('cf-options-group')?.classList.toggle('hidden', !isSelect);
+  });
+
+  document.getElementById('form-custom-field')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const entityType = document.getElementById('cf-entity-type').value;
+    const label = document.getElementById('cf-label').value.trim();
+    const fieldName = label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    const fieldType = document.getElementById('cf-type').value;
+    const rawOptions = document.getElementById('cf-options').value;
+    const options = rawOptions ? rawOptions.split(',').map((s) => s.trim()).filter(Boolean) : [];
+    const defaultValue = document.getElementById('cf-default').value;
+
+    try {
+      await api('/api/commandcenter/custom-fields/definitions', {
+        method: 'POST',
+        body: {
+          table_name: entityType,
+          field_name: fieldName,
+          field_label: label,
+          field_type: fieldType,
+          options,
+          default_value: defaultValue
+        }
+      });
+      showToast(`Added custom property "${label}"`);
+      document.getElementById('modal-custom-field')?.classList.add('hidden');
+      await loadCustomFieldDefs();
+      if (entityType === 'sponsorships') renderCustomFields('sponsorships', document.getElementById('sp-id').value, 'sp-custom-fields-container');
+      if (entityType === 'content') renderCustomFields('content', document.getElementById('ct-id').value, 'ct-custom-fields-container');
+      if (entityType === 'tasks') renderCustomFields('tasks', document.getElementById('tk-id').value, 'tk-custom-fields-container');
+      if (entityType === 'projects') renderCustomFields('projects', document.getElementById('pj-id').value, 'pj-custom-fields-container');
+    } catch (err) {
+      showToast(err.message);
+    }
+  });
+
+  // Link Record Form
+  document.getElementById('link-target-type')?.addEventListener('change', (e) => {
+    populateLinkTargetOptions(e.target.value);
+  });
+
+  document.getElementById('form-link-record')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const sourceType = document.getElementById('link-source-type').value;
+    const sourceId = Number(document.getElementById('link-source-id').value);
+    const targetType = document.getElementById('link-target-type').value;
+    const targetId = Number(document.getElementById('link-target-record').value);
+    const containerId = document.getElementById('modal-link-record').dataset.containerId;
+
+    if (!targetId) {
+      showToast('Please select a target record to connect');
+      return;
+    }
+
+    try {
+      await api('/api/commandcenter/relationships', {
+        method: 'POST',
+        body: {
+          source_type: sourceType,
+          source_id: sourceId,
+          target_type: targetType,
+          target_id: targetId,
+          relationship_type: 'relates_to'
+        }
+      });
+      showToast('Record connected');
+      document.getElementById('modal-link-record')?.classList.add('hidden');
+      if (containerId) {
+        renderRecordRelationships(sourceType, sourceId, containerId);
+      }
+    } catch (err) {
+      showToast(err.message);
+    }
+  });
+
+  // User Permissions Form
+  document.getElementById('form-user-permission')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('user-perm-id').value;
+    const role = document.getElementById('user-perm-role').value;
+    let allowed_modules = '*';
+    if (role === 'authorized_user') {
+      const selectedMods = Array.from(document.querySelectorAll('.user-module-cb:checked')).map((cb) => cb.value);
+      allowed_modules = JSON.stringify(selectedMods);
+    }
+
+    try {
+      await api(`/api/commandcenter/users/${id}`, {
+        method: 'PUT',
+        body: {
+          role,
+          allowed_modules,
+          can_export: role === 'owner' || role === 'admin' ? 1 : 0,
+          can_delete: role === 'owner' || role === 'admin' ? 1 : 0
+        }
+      });
+      showToast('User permissions updated');
+      document.getElementById('modal-user-permission')?.classList.add('hidden');
+      await loadUsers();
+    } catch (err) {
+      showToast(err.message);
+    }
+  });
+
+  // Universal Search Modal Inputs & Tabs
+  document.getElementById('modal-search-input')?.addEventListener('input', handleSearchModalInput);
+  document.querySelectorAll('#modal-search-tabs .search-tab').forEach((tab) => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('#modal-search-tabs .search-tab').forEach((t) => t.classList.remove('active'));
+      tab.classList.add('active');
+      state.searchFilter = tab.dataset.sfilter || 'all';
+      const q = document.getElementById('modal-search-input').value.trim();
+      if (q) executeUniversalSearch(q);
+    });
+  });
+
+  document.getElementById('global-search-input')?.addEventListener('focus', () => {
+    openSearchModal(document.getElementById('global-search-input').value);
+  });
 
   // Modal close buttons
   document.querySelectorAll('[data-close]').forEach((btn) => {
@@ -2534,12 +4226,17 @@ function bindEventListeners() {
       notes: document.getElementById('sp-notes').value
     };
     try {
+      let savedId = id;
       if (id) {
         await api(`/api/commandcenter/sponsorships/${id}`, { method: 'PUT', body: payload });
         showToast('Sponsorship updated');
       } else {
-        await api('/api/commandcenter/sponsorships', { method: 'POST', body: payload });
+        const res = await api('/api/commandcenter/sponsorships', { method: 'POST', body: payload });
+        savedId = res.sponsorship?.id || res.id;
         showToast('Sponsorship created');
+      }
+      if (savedId) {
+        await saveCustomFieldValues('sponsorships', savedId, 'sp-custom-fields-container');
       }
       document.getElementById('modal-sponsorship').classList.add('hidden');
       await refreshAllData();
@@ -2692,12 +4389,17 @@ function bindEventListeners() {
     }
 
     try {
+      let savedId = id;
       if (id) {
         await api(`/api/commandcenter/content/${id}`, { method: 'PUT', body: payload });
         showToast('Content item updated');
       } else {
-        await api('/api/commandcenter/content', { method: 'POST', body: payload });
+        const res = await api('/api/commandcenter/content', { method: 'POST', body: payload });
+        savedId = res.content_item?.id || res.id;
         showToast(payload.platforms ? `Created idea across ${payload.platforms.length} platforms` : 'Content item added');
+      }
+      if (savedId) {
+        await saveCustomFieldValues('content', savedId, 'ct-custom-fields-container');
       }
       document.getElementById('modal-content').classList.add('hidden');
       await refreshAllData();
@@ -2861,12 +4563,17 @@ function bindEventListeners() {
       notes: document.getElementById('tk-notes').value
     };
     try {
+      let savedId = id;
       if (id) {
         await api(`/api/commandcenter/tasks/${id}`, { method: 'PUT', body: payload });
         showToast('Task updated');
       } else {
-        await api('/api/commandcenter/tasks', { method: 'POST', body: payload });
+        const res = await api('/api/commandcenter/tasks', { method: 'POST', body: payload });
+        savedId = res.task?.id || res.id;
         showToast('Task added');
+      }
+      if (savedId) {
+        await saveCustomFieldValues('tasks', savedId, 'tk-custom-fields-container');
       }
       document.getElementById('modal-task').classList.add('hidden');
       await refreshAllData();
@@ -2902,12 +4609,17 @@ function bindEventListeners() {
       notes: document.getElementById('pj-notes').value
     };
     try {
+      let savedId = id;
       if (id) {
         await api(`/api/commandcenter/projects/${id}`, { method: 'PUT', body: payload });
         showToast('Project updated');
       } else {
-        await api('/api/commandcenter/projects', { method: 'POST', body: payload });
+        const res = await api('/api/commandcenter/projects', { method: 'POST', body: payload });
+        savedId = res.project?.id || res.id;
         showToast('Project created');
+      }
+      if (savedId) {
+        await saveCustomFieldValues('projects', savedId, 'pj-custom-fields-container');
       }
       document.getElementById('modal-project').classList.add('hidden');
       await refreshAllData();
@@ -3191,8 +4903,7 @@ function bindEventListeners() {
 
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
       e.preventDefault();
-      searchInput.focus();
-      searchInput.select();
+      openSearchModal();
       return;
     }
 
@@ -3206,10 +4917,11 @@ function bindEventListeners() {
 
     if (e.key === '/') {
       e.preventDefault();
-      searchInput.focus();
+      openSearchModal();
     } else if (e.key.toLowerCase() === 'n') {
       e.preventDefault();
-      if (state.activeView === 'media') openMediaModal();
+      if (state.activeView === 'notes') openNoteModal();
+      else if (state.activeView === 'media') openMediaModal();
       else if (state.activeView === 'affiliates') openAffiliateModal();
       else if (state.activeView === 'content') openContentModal();
       else if (state.activeView === 'revenue') openRevenueModal();
